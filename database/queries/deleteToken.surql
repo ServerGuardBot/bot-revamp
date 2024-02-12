@@ -1,0 +1,1 @@
+DELETE type::thing("login_token", $id);

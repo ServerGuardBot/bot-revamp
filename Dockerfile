@@ -1,17 +1,12 @@
-FROM python:3.9-slim
+FROM python:latest
 
-# Installing packages
-RUN pip install --no-cache-dir pipenv
+# Copy the files
+WORKDIR /app
+ADD . .
 
-# Defining working directory and adding source code
-RUN mkdir -p /usr/src/app
-WORKDIR /usr/src/app
-COPY Pipfile Pipfile.lock bootstrap.sh migrate_database.sh create_tables.py ./
-COPY project ./project
+# Dependencies
+RUN pip install -r requirements.txt
 
-# Install API dependencies
-RUN pipenv install --deploy --ignore-pipfile
-
-# Start app
-EXPOSE 5000
-ENTRYPOINT ["/usr/src/app/bootstrap.sh"]
+# Run
+EXPOSE 7777
+CMD ["python", "base.py"]
