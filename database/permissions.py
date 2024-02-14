@@ -22,6 +22,7 @@ class UserPermissions:
         "commands_serverinfo",
         "commands_purge",
         "commands_note",
+        "bypass_filter",
         "host_giveaways",
         "is_trusted",
     ]
@@ -48,6 +49,7 @@ class UserPermissions:
     commands_serverinfo = False
     commands_purge = False
     commands_note = False
+    bypass_filter = False
     host_giveaways = False
     is_trusted = False
 

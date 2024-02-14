@@ -14,3 +14,12 @@ quart
 quart-cors
 hypercorn
 surrealdb
+lingua-language-detector
+scikit-learn
+nltk
+spacy
+textblob
+tensorflow
+pandas
+Keras
+Keras-Preprocessing
