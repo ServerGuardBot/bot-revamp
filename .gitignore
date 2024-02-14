@@ -1,3 +1,7 @@
+# Filter data
+filters/data/*.csv
+filters/model/glove/*.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

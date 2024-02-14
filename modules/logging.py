@@ -163,5 +163,37 @@ class Logging(commands.Cog):
                             em.add_field(name="Contents", value=event.message.content, inline=False)
                             await channel.send(embed=em, silent=True)
 
+    @listener("logging")
+    @commands.Cog.listener()
+    async def on_message_update(self, event: guilded.MessageUpdateEvent):
+        async with DBConnection() as db:
+            try:
+                response = await db.query(loadQuery("getGuild"), {"id": event.server.id})
+            except:
+                pass
+            else:
+                if resultExists(response):
+                    data = response[0]["result"][0]
+
+                    if data.get("logs_message"):
+                        try:
+                            channel = await self.bot.getch_channel(data["logs_message"])
+                        except:
+                            pass
+                        else:
+                            em: guilded.Embed = EMBED_STANDARD(
+                                title=f"Message Edited",
+                                url = event.after.share_url,
+                                colour=guilded.Colour.gilded()
+                            )
+                            em.set_thumbnail(url=event.after.author.display_avatar.url)
+                            em.add_field(name="User ID", value=event.after.author.id)
+                            em.add_field(name="Message ID", value=event.after.id)
+                            em.add_field(name="Pinned", value=event.after.pinned)
+                            if event.before:
+                                em.add_field(name="Before", value=event.before.content, inline=False)
+                            em.add_field(name="After", value=event.after.content, inline=False)
+                            await channel.send(embed=em, silent=True)
+
 def setup(bot: commands.Bot):
     bot.add_cog(Logging(bot))
