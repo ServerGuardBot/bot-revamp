@@ -27,6 +27,34 @@ class UserPermissions:
         "is_trusted",
     ]
 
+    __perm_map__ = {
+        "manage_verification": "ManageVerification",
+        "manage_xp": "ManageXP",
+        "manage_moderation": "ManageModeration",
+        "manage_automod": "ManageAutoMod",
+        "manage_logging": "ManageLogging",
+        "manage_filters": "ManageFilters",
+        "manage_welcomer": "ManageWelcomer",
+        "manage_autoroles": "ManageAutoroles",
+        "manage_feeds": "ManageFeeds",
+        "manage_giveaways": "ManageGiveaways",
+        "manage_automations": "ManageAutomations",
+        "manage_bot": "ManageBot",
+        "commands_ban": "CommandsBan",
+        "commands_kick": "CommandsKick",
+        "commands_mute": "CommandsMute",
+        "commands_bypass": "CommandsBypass",
+        "commands_warn": "CommandsWarn",
+        "commands_evaluate": "CommandsEvaluate",
+        "commands_userinfo": "CommandsUserInfo",
+        "commands_serverinfo": "CommandsServerInfo",
+        "commands_purge": "CommandsPurge",
+        "commands_note": "CommandsNote",
+        "bypass_filter": "BypassFilter",
+        "host_giveaways": "HostGiveaways",
+        "is_trusted": "IsTrusted",
+    }
+
     manage_verification = False
     manage_xp = False
     manage_moderation = False
@@ -72,6 +100,22 @@ class UserPermissions:
             if permission.startswith("manage") and getattr(self, permission, False):
                 return True
         return False
+    
+    @property
+    def list(self):
+        perms = []
+        for permission in self.__permissions__:
+            if getattr(self, permission, False) and self.__perm_map__.get(permission):
+                perms.append(self.__perm_map__[permission])
+        return perms
+    
+    @classmethod
+    def from_list(cls, permissions: list):
+        perms = {}
+        for key, value in cls.__perm_map__.items():
+            if value in permissions:
+                perms[key] = True
+        return cls(**perms)
     
     @classmethod
     def from_string(cls, permissions: str):
