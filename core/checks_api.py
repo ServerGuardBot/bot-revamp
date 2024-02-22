@@ -3,6 +3,18 @@ from database.permissions import UserPermissions
 from quart import request, jsonify
 from functools import wraps
 
+import guilded
+import config
+
+async def user_is_developer(bot: guilded.Client, user: str):
+    support_server = await bot.getch_server(config.SUPPORT_SERVER_ID)
+    member = await support_server.getch_member(user)
+    if member:
+        roles = await member.fetch_role_ids()
+        if int(config.DEVELOPER_ROLE_ID) in roles:
+            return True
+    return False
+
 def authenticated(f):
     @wraps(f)
     async def decorated(*args, **kwargs):
@@ -47,15 +59,20 @@ def optional_auth(f):
 def unauthenticated(f):
     @wraps(f)
     async def decorated(*args, **kwargs):
+        from modules.auth import LoginToken
         session = request.cookies.get('session')
 
         if session:
-            return jsonify({'error': 'Unauthorized'}), 401
+            token = LoginToken.from_token(session)
+            if token.valid:
+                return jsonify({'error': 'Unauthorized'}), 401
         
         refresh = request.cookies.get('refresh')
 
         if refresh:
-            return jsonify({'error': 'Unauthorized'}), 401
+            token = LoginToken.from_token(refresh)
+            if token.valid:
+                return jsonify({'error': 'Unauthorized'}), 401
 
         return await f(*args, **kwargs)
 
@@ -83,7 +100,7 @@ def dashboard_access(f):
             if not resultExists(response):
                 return jsonify({'error': 'Forbidden'}), 403
             user = response[0]["result"][0]
-            if user["access"]:
+            if user["can_access_dash"]:
                 return await f(*args, **kwargs)
         return jsonify({'error': 'Forbidden'}), 403
     return decorated

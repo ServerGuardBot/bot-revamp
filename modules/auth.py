@@ -1,6 +1,7 @@
-from core.checks_api import authenticated, dashboard_access, unauthenticated
+from core.checks_api import authenticated, dashboard_access, unauthenticated, user_is_developer
 from core.embeds import EMBED_DENIED, EMBED_STANDARD, EMBED_SUCCESS
 from database import DBConnection, loadQuery, resultExists
+from database.permissions import UserPermissions
 from core.emotes import EMOTE_VERIFICATION_TICK
 from core.images import IMAGE_DEFAULT_AVATAR
 from quart import Quart, jsonify, request
@@ -120,7 +121,7 @@ class Auth(commands.Cog):
     
     def register_routes(self, app: Quart):
         @app.route("/login/<string:lock>/<string:token>", methods=["GET"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=config.ORIGIN_SITE)
+        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         @unauthenticated
         async def GetLoginState(lock: str, token: str):
             async with DBConnection() as db:
@@ -130,16 +131,16 @@ class Auth(commands.Cog):
                 if resultExists(response):
                     data: dict = response[0]["result"][0]
                     if data["type"] != "login" or data["lock"] != lock:
-                        return jsonify({"status": "error", "message": "Invalid token"}, status=400)
-                    if data.get("user"):
-                        loginToken = LoginToken("user", data["user"])
-                        refreshToken = LoginToken("refresh", data["user"])
+                        return jsonify({"status": "error", "message": "Invalid token"}), 400
+                    if data.get("user_id"):
+                        loginToken = LoginToken("user", data["user_id"])
+                        refreshToken = LoginToken("refresh", data["user_id"])
                         res = jsonify({
                             "status": "ok",
                             "state": 1 # Authorized
                         })
-                        res.set_cookie("session", str(loginToken), expires=datetime.now() + LOGIN_TOKEN_EXPIRATION, secure=True, domain=config.API_SITE)
-                        res.set_cookie("refresh", str(refreshToken), expires=datetime.now() + REFRESH_TOKEN_EXPIRATION, secure=True, domain=config.API_SITE)
+                        res.set_cookie("session", str(loginToken), expires=datetime.now() + LOGIN_TOKEN_EXPIRATION, secure=True, domain=config.API_SITE, samesite="None", httponly=True)
+                        res.set_cookie("refresh", str(refreshToken), expires=datetime.now() + REFRESH_TOKEN_EXPIRATION, secure=True, domain=config.API_SITE, samesite="None", httponly=True)
                         await db.query(loadQuery("deleteToken"), {
                             "id": token
                         })
@@ -150,10 +151,10 @@ class Auth(commands.Cog):
                             "state": 0 # Not yet authorized
                         })
                 else:
-                    return jsonify({"status": "error", "message": "Invalid or expired token"}, status=404)
+                    return jsonify({"status": "error", "message": "Invalid or expired token"}), 404
         
         @app.route("/login", methods=["POST"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["POST"], allow_origin=config.ORIGIN_SITE)
+        @route_cors(allow_headers=["content-type"], allow_methods=["POST"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         @unauthenticated
         async def CreateLoginToken():
             async with DBConnection() as db:
@@ -175,7 +176,7 @@ class Auth(commands.Cog):
                     return jsonify({"status": "error"}, status=500)
         
         @app.route("/login", methods=["DELETE"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["DELETE"], allow_origin=config.ORIGIN_SITE)
+        @route_cors(allow_headers=["content-type"], allow_methods=["DELETE"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         @unauthenticated
         async def CancelLoginToken():
             post_data: dict = await request.get_json()
@@ -199,7 +200,7 @@ class Auth(commands.Cog):
                     return jsonify({"status": "error", "message": "Invalid or expired token"}), 404
         
         @app.route("/logout", methods=["POST"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["POST"], allow_origin=config.ORIGIN_SITE)
+        @route_cors(allow_headers=["content-type"], allow_methods=["POST"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         async def Logout():
             cookies = request.cookies
             sessionCookie = cookies.get("session")
@@ -209,31 +210,35 @@ class Auth(commands.Cog):
                 sessionToken = LoginToken.from_token(sessionCookie)
                 refreshToken = LoginToken.from_token(refreshCookie)
 
-                if not sessionToken or not refreshToken:
-                    return jsonify({"status": "error", "message": "Not authorized"}, status=401)
+                if (not sessionToken or not refreshToken) or (not sessionToken.valid or not refreshToken.valid):
+                    return jsonify({"status": "error", "message": "Not authorized"}), 401
                 if sessionToken.type != "user" or refreshToken.type != "refresh":
-                    return jsonify({"status": "error", "message": "Invalid session or refresh token"}, status=400)
+                    return jsonify({"status": "error", "message": "Invalid session or refresh token"}), 400
                 async with DBConnection() as db:
                     blResponse = await db.query(loadQuery("getBlacklistedToken"), {
                         "id": refreshCookie,
                     })
                     if resultExists(blResponse):
-                        return jsonify({"status": "error", "message": "Invalid refresh token"}, status=400)
+                        res = jsonify({"status": "error", "message": "Invalid refresh token"})
+                        res.set_cookie("session", "", expires=0, domain=config.API_SITE, samesite="None", secure=True, httponly=True)
+                        res.set_cookie("refresh", "", expires=0, domain=config.API_SITE, samesite="None", secure=True, httponly=True)
+                        return res, 400
                     response = await db.query(loadQuery("blacklistRefreshToken"), {
                         "id": refreshCookie,
-                        "expires": (refreshToken.created + REFRESH_TOKEN_EXPIRATION).timestamp()
+                        "expires": int((refreshToken.created + REFRESH_TOKEN_EXPIRATION).timestamp())
                     })
 
                     if response[0]["status"] == "OK":
                         res = jsonify({"status": "ok"})
-                        res.set_cookie("session", "", expires=0)
-                        res.set_cookie("refresh", "", expires=0)
+                        res.set_cookie("session", "", expires=0, domain=config.API_SITE, samesite="None", secure=True, httponly=True)
+                        res.set_cookie("refresh", "", expires=0, domain=config.API_SITE, samesite="None", secure=True, httponly=True)
+                        return res
                     else:
-                        return jsonify({"status": "error", "message": "Failed to blacklist refresh token"}, status=500)
-            return jsonify({"status": "error", "message": "Not authorized"}, status=401)
+                        return jsonify({"status": "error", "message": "Failed to blacklist refresh token", "response": response[0]["result"]}), 500
+            return jsonify({"status": "error", "message": "Not authorized"}), 401
         
         @app.route("/refresh", methods=["POST"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["POST"], allow_origin=config.ORIGIN_SITE)
+        @route_cors(allow_headers=["content-type"], allow_methods=["POST"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         async def Refresh():
             cookies = request.cookies
             refreshCookie = cookies.get("refresh")
@@ -241,32 +246,123 @@ class Auth(commands.Cog):
             if refreshCookie:
                 refreshToken = LoginToken.from_token(refreshCookie)
 
-                if (not refreshToken) or refreshToken.type != "refresh":
-                    return jsonify({"status": "error", "message": "Invalid refresh token"}, status=400)
+                if (not refreshToken) or refreshToken.type != "refresh" or not refreshToken.valid:
+                    return jsonify({"status": "error", "message": "Invalid refresh token"}), 400
                 async with DBConnection() as db:
                     blResponse = await db.query(loadQuery("getBlacklistedToken"), {
                         "id": refreshCookie,
                     })
                     if resultExists(blResponse):
-                        return jsonify({"status": "error", "message": "Invalid refresh token"}, status=400)
+                        return jsonify({"status": "error", "message": "Invalid refresh token"}), 400
                     response = await db.query(loadQuery("blacklistRefreshToken"), {
                         "id": refreshCookie,
-                        "expires": (refreshToken.created + REFRESH_TOKEN_EXPIRATION).timestamp()
+                        "expires": int((refreshToken.created + REFRESH_TOKEN_EXPIRATION).timestamp())
                     })
 
                     if response[0]["status"] == "OK":
                         res = jsonify({"status": "ok"})
                         new_refresh = LoginToken("refresh", refreshToken.user_id)
                         new_session = LoginToken("user", refreshToken.user_id)
-                        res.set_cookie("session", str(new_session), max_age=LOGIN_TOKEN_EXPIRATION, secure=True, domain=config.API_SITE)
-                        res.set_cookie("refresh", str(new_refresh), max_age=REFRESH_TOKEN_EXPIRATION, secure=True, domain=config.API_SITE)
+                        res.set_cookie("session", str(new_session), max_age=LOGIN_TOKEN_EXPIRATION, secure=True, domain=config.API_SITE, httponly=True, samesite="None")
+                        res.set_cookie("refresh", str(new_refresh), max_age=REFRESH_TOKEN_EXPIRATION, secure=True, domain=config.API_SITE, httponly=True, samesite="None")
                         return res, 200
                     else:
-                        return jsonify({"status": "error", "message": "Failed to blacklist refresh token"}, status=500)
-            return jsonify({"status": "error", "message": "Not authorized"}, status=401)
+                        return jsonify({"status": "error", "message": "Failed to blacklist refresh token"}), 500
+
+            return jsonify({"status": "error", "message": "Not authorized"}), 401
+        
+        @app.route("/session", methods=["GET"])
+        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @authenticated
+        async def GetSession():
+            userId = request.authenticated_user
+            bot_servers = self.bot.servers
+            async with DBConnection() as db:
+                try:
+                    userResponse = await db.query(loadQuery("getUser"), {
+                        "id": userId
+                    })
+                except:
+                    return jsonify({"status": "error", "message": "Could not retrieve user"}), 500
+                else:
+                    if resultExists(userResponse):
+                        user = userResponse[0]["result"][0]
+                    else:
+                        return jsonify({"status": "error", "message": "Could not retrieve user"}), 500
+                servers = []
+                for server in bot_servers:
+                    if server.member_count == 0:
+                        await server.fill_members()
+
+                    guildUser = None
+                    try:
+                        guildUser = server.get_member(userId)
+                    except:
+                        pass
+
+                    if not guildUser:
+                        continue
+
+                    isPremium = False
+                    try:
+                        serverResponse = await db.query(loadQuery("getGuild"), {
+                            "id": server.id
+                        })
+                    except Exception as e:
+                        print("{}: {}".format(type(e).__name__, e))
+                    else:
+                        if resultExists(serverResponse):
+                            data = serverResponse[0]["result"][0]
+                            isPremium = data["premium"][0] == "1"
+                        else:
+                            # Server doesn't exist in DB, skip it
+                            continue
+
+                    if guildUser:
+                        try:
+                            gUserResponse = await db.query(loadQuery("getGuildUser"), {
+                                "guild": server.id,
+                                "id": userId
+                            })
+                        except Exception as e:
+                            print("{}: {}".format(type(e).__name__, e))
+                        else:
+                            data = gUserResponse[0]["result"][0]
+                            if data["can_access_dash"]:
+                                try:
+                                    servers.append({
+                                        "id": server.id,
+                                        "name": server.name,
+                                        "bio": server.description,
+                                        "avatar": server.avatar.url if server.avatar else IMAGE_DEFAULT_AVATAR,
+                                        "banner": server.banner.url if server.banner else None,
+                                        "members": server.member_count,
+                                        "perms": UserPermissions.from_string(data["perms"]).list,
+
+                                        "isActive": True,
+                                        "isPremium": isPremium,
+                                    })
+                                except Exception as e:
+                                    print("{}: {}".format(type(e).__name__, e))
+                try:
+                    is_dev = await user_is_developer(self.bot, userId)
+                    return jsonify({
+                        "status": "ok",
+                        "user": {
+                            "id": userId,
+                            "name": user["name"],
+                            "avatar": user["avatar"],
+                            "language": user["language"],
+                            "isDeveloper": is_dev,
+                        },
+                        "servers": servers,
+                    })
+                except Exception as e:
+                    print("{}: {}".format(type(e).__name__, e))
+                    return jsonify({"status": "error", "message": "Could not retrieve user"}), 500
         
         @app.route("/servers", methods=["GET"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=config.ORIGIN_SITE)
+        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         @authenticated
         async def GetServers():
             userId = request.authenticated_user
@@ -274,29 +370,32 @@ class Auth(commands.Cog):
             servers = {}
             async with DBConnection() as db:
                 for server in bot_servers:
-                    user = None
+                    if server.member_count == 0:
+                        await server.fill_members()
+
                     try:
                         user = server.get_member(userId)
                     except:
                         pass
-                    if user:
-                        response = await db.query(loadQuery("getGuildUser"), {
-                            "guild": server.id,
-                            "id": userId
-                        })
-                        if resultExists(response):
-                            data = response[0]["result"][0]
-                            if data["access"]:
-                                servers[server.id] = {
-                                    "name": server.name,
-                                    "avatar": server.avatar.url if server.avatar else IMAGE_DEFAULT_AVATAR,
-                                    "banner": server.banner.url if server.banner else None,
-                                    "members": server.member_count,
-                                }
+                    else:
+                        if user:
+                            response = await db.query(loadQuery("getGuildUser"), {
+                                "guild": server.id,
+                                "id": userId
+                            })
+                            if resultExists(response):
+                                data = response[0]["result"][0]
+                                if data["can_access_dash"]:
+                                    servers[server.id] = {
+                                        "name": server.name,
+                                        "avatar": server.avatar.url if server.avatar else IMAGE_DEFAULT_AVATAR,
+                                        "banner": server.banner.url if server.banner else None,
+                                        "members": server.member_count,
+                                    }
             return jsonify({"status": "ok", "servers": servers})
         
         @app.route("/servers/<string:server_id>")
-        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=config.ORIGIN_SITE)
+        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         @authenticated
         @dashboard_access
         async def ServerOverview(server_id: str):
@@ -313,14 +412,14 @@ class Auth(commands.Cog):
                     prefix = server.get("prefix", config.DEFAULT_PREFIX)
 
                     roles = {}
+                    bot_roles = await (await bot_server.getch_member(self.bot.user_id)).fetch_role_ids()
                     server_roles = await bot_server.fetch_roles()
-                    highest_priority = 0
+                    highest_priority = -999999999
                     for role in server_roles:
-                        if role.bot_user_id == self.bot.user.id:
+                        if role.id in bot_roles and role.priority > highest_priority:
                             highest_priority = role.priority
-                            break
                     for role in server_roles:
-                        if role.priority >= highest_priority:
+                        if role.priority >= highest_priority - 1:
                             continue
                         roles[role.id] = {
                             "name": role.name,
