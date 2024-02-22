@@ -235,7 +235,7 @@ class Automod(commands.Cog):
                     _content = self.__get_content(message)
                     for content in _content:
                         print(f"Scanning '{content}'")
-                        default_profanities = data.get("default_profanities", ["en"])
+                        default_profanities = data.get("default_profanities", [])
                         if len(default_profanities) > 0:
                             for result in self.language_detector.detect_multiple_languages_of(content):
                                 code = LANG_MAP.get(result.language.name)

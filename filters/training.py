@@ -71,7 +71,8 @@ def build_rnn_model(data, target_classes, embedding_layer):
                         epochs=EPOCHS,
                         validation_split=VALIDATION_SPLIT,
                         callbacks=[early_stop, checkpoint],
-                        verbose=1)
+                        verbose=1,
+                        use_multiprocessing=True)
 
     # Return Model Training History
     return model, history
