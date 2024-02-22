@@ -293,14 +293,14 @@ async def run_bot_and_api():
     
     app = Quart(__name__)
     app.config["bot"] = bot
-    app = cors(app, allow_origin=["*"])
+    app = cors(app, allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
 
     for cog in bot.cogs.values():
         if hasattr(cog, "register_routes"):
             cog.register_routes(app)
     
     @app.route("/uptime", methods=["GET"])
-    @route_cors(allow_methods=["GET"], allow_origin=["*"])
+    @route_cors(allow_methods=["GET"], allow_origin=["*"], allow_credentials=False)
     async def Uptime():
         bot_latency = bot.latency * 1000
 
