@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Run Bot",
-            "program": "./base.py",
+            "program": "./src/base.py",
             "request": "launch",
             "type": "python",
             "console": "integratedTerminal",
