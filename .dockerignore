@@ -1,0 +1,8 @@
+bootstrap.sh
+guilded.log
+.gitignore
+.github
+.vscode
+__pycache__
+*/__pycache__
+.env
