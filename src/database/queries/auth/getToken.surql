@@ -1,0 +1,1 @@
+SELECT * FROM type::thing("user_token", $id);

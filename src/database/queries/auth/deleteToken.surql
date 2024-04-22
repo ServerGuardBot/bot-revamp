@@ -1,0 +1,1 @@
+DELETE type::thing("user_token", $id);

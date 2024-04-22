@@ -1,0 +1,1 @@
+SELECT * FROM analytics_item WHERE key = $key AND date = time::floor(time::from::unix($date), 1h);

@@ -1,0 +1,1 @@
+SELECT count() FROM array::distinct((SELECT user_id FROM guild_user)) GROUP BY count;

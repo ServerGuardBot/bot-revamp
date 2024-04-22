@@ -1,0 +1,1 @@
+SELECT * from type::thing("user_identifier", $id);

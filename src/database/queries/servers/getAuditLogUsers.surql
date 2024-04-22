@@ -1,0 +1,1 @@
+SELECT meta::id(id) AS id, name, avatar FROM user WHERE (SELECT array::group(originator_id) AS ids FROM audit_log WHERE guild_id = $guild GROUP ALL)[0].ids CONTAINS meta::id(id);

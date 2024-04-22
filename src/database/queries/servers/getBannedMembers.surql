@@ -1,0 +1,1 @@
+SELECT meta::id(user_id) AS user_id, name, avatar FROM guild_user WHERE guild_id == $guild AND is_banned == true;
