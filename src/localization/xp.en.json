@@ -1,0 +1,16 @@
+{
+    "remove_old": {
+        "label": "Remove Old Level Roles",
+        "description": "When a user gains a level, the bot will try to remove any known previous level roles"
+    },
+    "announce_level_up": {
+        "label": "Announce Level Up",
+        "description": "Announces that the user leveled up, in the channel where they leveled up from"
+    },
+    "xp_gain": {
+        "label": "Role XP Gain",
+        "description": "Grant certain roles (or everyone) XP when they speak. Limits XP gains to once per minute"
+    },
+    "new": "Add Role",
+    "placeholder": "Input XP here"
+}

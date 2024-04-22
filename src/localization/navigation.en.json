@@ -1,0 +1,19 @@
+{
+    "dashboard": {
+        "category": {
+            "moderation": "Moderation",
+            "general": "General"
+        },
+        "index": "Dashboard",
+        "permissions": "Permissions",
+        "audit": "Audit Log",
+        "verification": "Verification",
+        "logging": "Logging",
+        "xp": "XP Management",
+        "automod": "Automod",
+        "autoroles": "Autoroles",
+        "welcomer": "Welcomer",
+        "feeds": "RSS Feeds",
+        "giveaways": "Giveaways"
+    }
+}

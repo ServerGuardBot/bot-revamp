@@ -1,0 +1,54 @@
+{
+    "nickname": "Nickname",
+    "timezone": "Timezone",
+    "language": {
+        "label": "Language",
+        "description": "The language that things like logs will be outputted in"
+    },
+    "muted_role": {
+        "label": "Muted Role",
+        "description": "The role that will be added to muted users"
+    },
+    "prefix": {
+        "label": "Prefix",
+        "description": "The prefix that will be used for commands"
+    },
+    "modules": {
+        "verification": {
+            "name": "Verification",
+            "description": "Protect your server from raids, ban evaders & more"
+        },
+        "logging": {
+            "name": "Logging",
+            "description": "Log all actions in your server"
+        },
+        "moderation": {
+            "name": "Moderation",
+            "description": "Moderate your server with tools like temp bans, mutes & more"
+        },
+        "automod": {
+            "name": "Automod",
+            "description": "Automatically moderate messages in your server"
+        },
+        "xp": {
+            "name": "XP",
+            "description": "Level up announcements, XP gain & more"
+        },
+        "feeds": {
+            "name": "RSS Feeds",
+            "description": "Automatically send news from RSS feeds right to your server"
+        },
+        "giveaways": {
+            "name": "Giveaways",
+            "description": "Host giveaways in your server"
+        },
+        "welcomer": {
+            "name": "Welcomer",
+            "description": "Welcome new members to your server"
+        },
+        "autoroles": {
+            "name": "Autoroles",
+            "description": "Give members roles automatically"
+        }
+    }
+}

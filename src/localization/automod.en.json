@@ -1,0 +1,74 @@
+{
+    "logs": {
+        "label": "Automod Logs",
+        "description": "Where automoderation logs will be sent to"
+    },
+    "malicious_urls": {
+        "label": "Block Malicious URLs",
+        "description": "Filters out known malicious URLs from a public database"
+    },
+    "invite_links": {
+        "label": "Block Invite Links",
+        "description": "Blocks Discord & Guilded invite links"
+    },
+    "api_keys": {
+        "label": "Block API Keys",
+        "description": "Blocks Detected API keys leaked in messages"
+    },
+    "spam": {
+        "label": "Spam",
+        "description": "How many messages must be sent within 3 seconds of each other to trigger the spam filter"
+    },
+    "toxicity": {
+        "label": "Toxicity Filter",
+        "description": "How certain the bot must be of a toxicity detection to act on it"
+    },
+    "hate-speech": {
+        "label": "Hate-speech Filter",
+        "description": "How certain the bot must be of a hate-speech detection to act on it"
+    },
+    "nsfw": {
+        "label": "NSFW Filter",
+        "description": "How certain the bot must be of a NSFW detection to act on it"
+    },
+    "blacklist": {
+        "label": "Word Blacklist",
+        "description": "Blacklist words in messages, automatically detects potential variants of listed words"
+    },
+    "default_profanities": {
+        "label": "Default Profanity Lists",
+        "description": "Which languages to apply a default profanity list for if detected in a message",
+        "placeholder": "Input languages here"
+    },
+    "untrusted_block_attachments": {
+        "label": "Untrusted Block Attachments",
+        "description": "What types of attachments the bot should block from users you consider untrusted.",
+        "placeholder": "Input attachment types here"
+    },
+    "restrictions": {
+        "allow_roles": {
+            "label": "Include Roles",
+            "placeholder": "Input roles here"
+        },
+        "allow_users": {
+            "label": "Include Users",
+            "placeholder": "Input users here"
+        },
+        "allow_channels": {
+            "label": "Include Channels",
+            "placeholder": "Input channels here"
+        },
+        "blacklist_roles": {
+            "label": "Exclude Roles",
+            "placeholder": "Input roles here"
+        },
+        "blacklist_users": {
+            "label": "Exclude Users",
+            "placeholder": "Input users here"
+        },
+        "blacklist_channels": {
+            "label": "Exclude Channels",
+            "placeholder": "Input channels here"
+        }
+    }
+}

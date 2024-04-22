@@ -1,0 +1,20 @@
+{
+    "unsaved": {
+        "title": "Unsaved Changes",
+        "message": "You have unsaved changes. Apply them to keep them!"
+    },
+    "success": {
+        "title": "Success",
+        "message": "Successfully applied changes."
+    },
+    "partial": {
+        "title": "Partial Success",
+        "message": "Some settings failed to save."
+    },
+    "failed": {
+        "title": "Failed",
+        "message": "All settings failed to save.",
+        "message_cors": "An unexpected CORS error has occurred.",
+        "message_server": "An unexpected server error has occurred."
+    }
+}

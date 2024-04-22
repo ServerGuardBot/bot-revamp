@@ -1,0 +1,48 @@
+{
+    "verified_role": {
+        "label": "Verified Role",
+        "description": "The role that will be added to verified users"
+    },
+    "unverified_role": {
+        "label": "Unverified Role",
+        "description": "The role that will be added to unverified users"
+    },
+    "channel": {
+        "label": "Verification Channel",
+        "description": "Where new users will be directed towards for verification"
+    },
+    "logs": {
+        "label": "Verify Logs",
+        "description": "Where logs for verified users will be sent to"
+    },
+    "admin_contact": {
+        "label": "Admin Contact",
+        "description": "How users should contact you if something goes wrong during verification"
+    },
+    "block_tor": {
+        "label": "Block TOR Exit Nodes",
+        "description": "When enabled, Server Guard will block any verification attempts from the TOR network"
+    },
+    "proxy_check": {
+        "label": "Proxy Check",
+        "description": "When enabled, Server Guard will block verification attempts from dangerous IPs"
+    },
+    "raid_guard": {
+        "label": "Raid Guard",
+        "description": "Raid Guard attempts to automatically block and intercept raid attempts"
+    },
+    "rule_enforcement": {
+        "label": "Rule Enforcement",
+        "description": "Server Guard will automatically reject verification based on these rules"
+    },
+    "toxicity": "Toxicity",
+    "hate-speech": "Hate-Speech",
+    "nsfw": {
+        "label": "NSFW",
+        "description": "How certain the bot needs to be of NSFW in the user's Avatar or Banner to flag them"
+    },
+    "blacklist": {
+        "label": "Blacklist",
+        "description": "Words to blacklist in users' names or bios"
+    }
+}

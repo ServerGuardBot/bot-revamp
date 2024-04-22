@@ -1,0 +1,43 @@
+{
+    "title": "RSS Feeds",
+    "create": "Create feed",
+    "feed": {
+        "label": "Feed",
+        "description": "Where this feed pulls RSS data from"
+    },
+    "channel_description": "The channel this feed will post to",
+    "source_names": {
+        "steam": "Steam Game",
+        "custom": "Custom RSS",
+        "roblox_blog": "Roblox Blog",
+        "roblox_releases": "Roblox Release Notes",
+        "league_of_legends": "League of Legends",
+        "unreal_engine_blog": "Unreal Engine Blog",
+        "unity_releases": "Unity Release Notes",
+        "unit_blog": "Unity Blog",
+        "myanimelist": "MyAnimeList News",
+        "livechart": "LiveChart Anime Episode Releases"
+    },
+    "internal": {
+        "name": {
+            "label": "Name",
+            "placeholder": "Input Name Here"
+        },
+        "url": {
+            "label": "URL",
+            "placeholder": "Input URL Here"
+        },
+        "create": {
+            "title": "Create Feed Type",
+            "submit": "Create Feed Data"
+        },
+        "edit": {
+            "title": "Edit Feed Type \"{name}\"",
+            "submit": "Edit Feed Data"
+        },
+        "delete": {
+            "title": "Delete Feed Type \"{name}\"?",
+            "submit": "Delete Feed Data"
+        }
+    }
+}

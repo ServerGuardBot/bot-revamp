@@ -1,0 +1,11 @@
+{
+    "malicious_urls": "Block Malicious URLs",
+    "filter_invites": "Block Invite Links",
+    "filter_api_keys": "Block API Keys",
+    "default_profanities": "Default Profanity Lists",
+    "filter_nsfw": "NSFW Filter",
+    "spam_filter": "Spam Filter",
+    "filter_toxicity": "Toxicity Filter",
+    "filter_hatespeech": "Hatespeech Filter",
+    "word_blacklist": "Blacklisted Words"
+}

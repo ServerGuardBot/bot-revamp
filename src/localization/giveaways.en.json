@@ -1,0 +1,21 @@
+{
+    "role": {
+        "label": "Ping Role",
+        "description": "The role that will be pinged when a giveaway is hosted"
+    },
+    "channel": {
+        "label": "Giveaway Channel",
+        "description": "The channel all giveaways will be posted in"
+    },
+    "status": {
+        "active": "Active",
+        "ended": "Over",
+        "cancelled": "Cancelled"
+    },
+    "ends_in": {
+        "active": "Ends {relative_date}",
+        "ended": "Ended {relative_date}"
+    },
+    "winners": "{winners, number} winners",
+    "reward": "Reward: {reward}"
+}

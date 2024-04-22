@@ -1,0 +1,34 @@
+{
+    "perms": {
+        "ManageVerification": "Can Manage Verification Module",
+        "ManageXP": "Can Manage XP Module",
+        "ManageModeration": "Can Manage Moderation Module",
+        "ManageAutoMod": "Can Manage AutoMod Module",
+        "ManageLogging": "Can Manage Logging Module",
+        "ManageWelcomer": "Can Manage Welcomer Module",
+        "ManageAutoroles": "Can Manage AutoRoles Module",
+        "ManageFeeds": "Can Manage Feeds Module",
+        "ManageGiveaways": "Can Manage Giveaways Module",
+        "ManageAutomations": "Can Manage Automations Module",
+        "ManageBot": "Can Manage Bot",
+        "CommandsBan": "Can Use Ban Command",
+        "CommandsKick": "Can Use Kick Command",
+        "CommandsMute": "Can Use Mute Command",
+        "CommandsBypass": "Can Use Bypass Command",
+        "CommandsWarn": "Can Use Warn Command",
+        "CommandsEvaluate": "Can Use Evaluate Command",
+        "CommandsUserInfo": "Can Use User Info Command",
+        "CommandsServerInfo": "Can Use Server Info Command",
+        "CommandsPurge": "Can Use Purge Command",
+        "CommandsNote": "Can Use Note Command",
+        "BypassFilter": "Can Bypass Chat Filters",
+        "HostGiveaways": "Can Host Giveaways",
+        "IsTrusted": "Is a Trusted Member",
+        "ViewAuditLogs": "Can View Audit Logs"
+    },
+    "categories": {
+        "Management": "Management",
+        "Commands": "Commands",
+        "General": "General"
+    }
+}

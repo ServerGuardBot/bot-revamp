@@ -1,0 +1,38 @@
+{
+    "commands": {
+        "label": "Log Commands",
+        "description": "Log when moderators use commands"
+    },
+    "silence_commands": {
+        "label": "Silence Commands",
+        "description": "Remove the message when a moderator uses a command"
+    },
+    "roles": {
+        "label": "Log Role Changes",
+        "description": "When enabled, logs role changes to User Logs"
+    },
+    "messages": {
+        "label": "Message Logs Channel",
+        "description": "Logs channel for any kind of message"
+    },
+    "traffic": {
+        "label": "Traffic Logs Channel",
+        "description": "Logs channel for when users join/leave or are banned"
+    },
+    "users": {
+        "label": "User Logs Channel",
+        "description": "Logs channel for user-related changes like roles"
+    },
+    "management": {
+        "label": "Management Logs Channel",
+        "description": "Logs channel for things like channel creation"
+    },
+    "actions": {
+        "label": "Action Logs Channel",
+        "description": "Logs channel for actions like bans or kicks"
+    },
+    "nsfw": {
+        "label": "NSFW Logs Channel",
+        "description": "Logs channel for the bot's NSFW detection"
+    }
+}

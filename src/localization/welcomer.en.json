@@ -1,0 +1,35 @@
+{
+    "welcomer_cycle": {
+        "options": {
+            "Random": "Random",
+            "PerUser": "Per User",
+            "None": "None",
+            "Daily": "Daily",
+            "Weekly": "Weekly",
+            "Monthly": "Monthly"
+        },
+        "label": "Cycle",
+        "description": "How should the welcomer cycle through images?"
+    },
+    "templates_note": "Welcomer messages support the following template strings:",
+    "templates": {
+        "mention": "Mentions the user being welcomed",
+        "server_name": "The name of the server"
+    },
+    "editor": {
+        "characters": "{amount, number}/{total, number} characters",
+        "words": "{count, number} words"
+    },
+    "welcome": {
+        "enabled_description": "Whether or not the bot will welcome users",
+        "channel_description": "The channel to welcome users in",
+        "message_description": "The welcomer's welcome message",
+        "image_description": "URLs to images for the welcome message to use"
+    },
+    "goodbye": {
+        "enabled_description": "Whether or not the bot will say goodbye to users",
+        "channel_description": "The channel to say goodbye in",
+        "message_description": "The welcomer's goodbye message",
+        "image_description": "URLs to images for the goodbye message to use"
+    }
+}
