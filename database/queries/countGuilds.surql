@@ -1,1 +1,0 @@
-SELECT count() from guild WHERE active = true GROUP BY count;

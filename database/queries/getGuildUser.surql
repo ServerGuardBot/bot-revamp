@@ -1,1 +1,0 @@
-SELECT * FROM guild_user WHERE guild_id = $guild AND user_id = $id;

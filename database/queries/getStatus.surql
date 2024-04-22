@@ -1,1 +1,0 @@
-SELECT * FROM type::thing("user_status", $id);

@@ -1,1 +1,0 @@
-DELETE type::thing("user_status", $id);

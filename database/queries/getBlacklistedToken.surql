@@ -1,1 +1,0 @@
-SELECT * FROM type::thing("refresh_token_blacklist", $id);

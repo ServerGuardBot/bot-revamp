@@ -1,1 +1,0 @@
-SELECT * from user WHERE meta::id(id) = $id;
