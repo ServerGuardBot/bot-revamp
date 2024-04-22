@@ -1,6 +1,12 @@
+# Migrations
+.surrealdb
+
+# Docker
+docker-compose.override.yml
+
 # Filter data
-filters/data/*.csv
-filters/model/glove/*.txt
+src/filters/data/*.csv
+src/filters/model/glove/*.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
