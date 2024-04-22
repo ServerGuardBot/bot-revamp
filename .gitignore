@@ -4,6 +4,11 @@
 # Docker
 docker-compose.override.yml
 
+# Private Detector
+src/private_detector/frozen_model/
+src/private_detector/saved_checkpoint/
+src/private_detector/saved_model/
+
 # Filter data
 src/filters/data/*.csv
 src/filters/model/glove/*.txt
