@@ -1,0 +1,1 @@
+DEFINE ANALYZER ascii TOKENIZERS class FILTERS ascii,lowercase;
