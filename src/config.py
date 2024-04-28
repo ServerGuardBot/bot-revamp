@@ -37,4 +37,13 @@ WEBLATE_TOKEN: str = os.getenv("WEBLATE_TOKEN")
 GRAFANA_ROOT: str = os.getenv("GRAFANA_ROOT", "")
 GRAFANA_AUTH: str = os.getenv("GRAFANA_AUTH")
 
+LOKI_ROOT: str = os.getenv("LOKI_ROOT", "")
+LOKI_AUTH: str = os.getenv("LOKI_AUTH")
+
+PROMETHEUS_ROOT: str = os.getenv("PROMETHEUS_ROOT", "")
+PROMETHEUS_AUTH: str = os.getenv("PROMETHEUS_AUTH")
+
+VALKEY_IP: str = os.getenv("VALKEY_IP", "localhost")
+VALKEY_PORT: str = os.getenv("VALKEY_PORT", "6379")
+
 LOAD_NSFW: bool = os.getenv("LOAD_NSFW", "true").lower() == "true"
