@@ -5,6 +5,7 @@ load_dotenv()
 
 from core.embeds import EMBED_DENIED, EMBED_STANDARD, EMBED_SUCCESS
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
+from quart_rate_limiter.store import RateLimiterStoreABC
 from database.permissions import UserPermissions
 from core.bot import Bot, HelpCommand, prefix
 from prometheus_client import make_asgi_app
@@ -187,13 +188,39 @@ logger.addHandler(handler)
 
 if config.GRAFANA_ROOT and config.GRAFANA_ROOT != "":
     loki_logger = LokiLogger(
-        baseUrl=config.GRAFANA_ROOT,
-        auth=config.GRAFANA_AUTH
+        baseUrl=config.LOKI_ROOT,
+        auth=config.LOKI_AUTH
     )
     loki_handler = LokiHandler(loki_logger)
     logger.addHandler(loki_handler)
 
-## END OF BOT EVENTS ##
+## RATE LIMITER STORE ##
+
+class ValkeyStore(RateLimiterStoreABC):
+    """A valkey-based store of rate limits."""
+
+    def __init__(self) -> None:
+        pass
+
+    async def get(self, key: str, default: datetime) -> datetime:
+        from database.valkey import valkey
+        result = valkey.get(f"rate_limit:{key}")
+        if result is None:
+            return default
+        else:
+            return datetime.fromtimestamp(float(result))
+
+    async def set(self, key: str, tat: datetime) -> None:
+        from database.valkey import valkey
+        valkey.set(f"rate_limit:{key}", tat.timestamp())
+
+    async def before_serving(self) -> None:
+        pass
+
+    async def after_serving(self) -> None:
+        pass
+
+## REST OF CODE ##
 
 class PrometheusMiddleware:
     def __init__(self, app, prometheus):
@@ -219,7 +246,7 @@ async def run_bot_and_api():
     
     app.asgi_app = PrometheusMiddleware(app.asgi_app, make_asgi_app())
     
-    rate_limiter = RateLimiter(app)
+    rate_limiter = RateLimiter(app, store=ValkeyStore())
 
     for cog in bot.cogs.values():
         if hasattr(cog, "register_routes"):
@@ -228,7 +255,7 @@ async def run_bot_and_api():
             await cog.after_load()
     
     app_config = Config()
-    app_config.bind = ["localhost:7777"]
+    app_config.bind = ["0.0.0.0:7777"]
 
     if os.path.exists(config.SSL_CERTIFICATE) and os.path.exists(config.SSL_KEY):
         context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
