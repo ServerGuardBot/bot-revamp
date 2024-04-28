@@ -4,9 +4,11 @@ from core.embeds import EMBED_FILTERED, EMBED_STANDARD
 from lingua import Language, LanguageDetectorBuilder
 from database.permissions import UserPermissions
 from guilded.utils import valid_video_extensions
+from mdit_plain.renderer import RendererPlain
 from humanfriendly import format_timespan
 from guilded.ext import commands, tasks
 from better_profanity import Profanity
+from markdown_it import MarkdownIt
 from nudenet import NudeDetector
 from unidecode import unidecode
 from datetime import timedelta
@@ -60,6 +62,8 @@ LANG_MAP = {
 }
 
 ATTACHMENT_REGEX = re.compile(r'!\[(?P<caption>.+)?\]\((?P<url>(?:(?:https:\/\/(?:s3-us-west-2\.amazonaws\.com\/www\.guilded\.gg|img\.guildedcdn\.com|img2\.guildedcdn\.com|www\.guilded\.gg|cdn\.gilcdn\.com)\/(?:ContentMediaGenericFiles|ContentMedia|WebhookPrimaryMedia)\/[a-zA-Z0-9]+-Full)|(?:https:\/\/media\d+\.giphy\.com\/media\/[^ \n]+)|(?:https:\/\/media\.tenor\.com\/[^ \n]+))\.(?P<extension>webp|jpeg|jpg|png|gif|apng|webm|mp4)(?:\?.+)?)\)')
+
+strip_md = MarkdownIt(renderer_cls=RendererPlain)
 
 def _extract_attachments(_state, content: str):
     attachments = []
@@ -311,6 +315,9 @@ class Automod(commands.Cog):
         return nudity
     
     def apply_filters(self, content: str):
+        content = strip_md(content)
+        content = unidecode(content)
+
         prediction = filter.predict(content, self.rnn_model)
 
         toxicity_weights, toxicity = weight_filters(prediction, {
@@ -747,10 +754,7 @@ class AutomodContext:
         except:
             raise RuntimeError("Failed to retrieve guild data")
         else:
-            if resultExists(response) and resultExists(responseUser):
-                return AutomodContext(guild, user.perms, user.roles, message)
-            else:
-                raise RuntimeError("Guild data not found")
+            return AutomodContext(guild, user.perms, user.roles, message)
     
     def can_run(self, setting: str):
         restrictions = self.server.settings.get(f"{setting}_restrictions", {})

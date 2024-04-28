@@ -31,3 +31,5 @@ python-i18n
 prometheus-client
 python-loki-logger
 redis==5.0.3
+mdit_plain
+markdown-it-py
