@@ -78,6 +78,26 @@ def unauthenticated(f):
 
     return decorated
 
+def developer_only(f):
+    @wraps(f)
+    async def decorated(*args, **kwargs):
+        authorized_user = request.authenticated_user
+
+        if not authorized_user:
+            raise RuntimeError("The authenticated check must be placed before the developer_only decorator! (Or you tried using this on a route that does not enforce auth)")
+
+        support_server = await db.servers.fetch_or_create_server(config.SUPPORT_SERVER_ID)
+        try:
+            member = await support_server.fetch_member(authorized_user)
+        except:
+            return jsonify({'error': 'Forbidden'}), 403
+        else:
+            roles = member.roles
+            if int(config.DEVELOPER_ROLE_ID) in roles:
+                return await f(*args, **kwargs)
+        return jsonify({'error': 'Forbidden'}), 403
+    return decorated
+
 def dashboard_access(f):
     @wraps(f)
     async def decorated(*args, **kwargs):
