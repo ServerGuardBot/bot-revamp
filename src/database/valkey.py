@@ -1,3 +1,4 @@
+import config
 import redis
 
-valkey = redis.Redis(host='localhost', port=6379, db=0)
+valkey = redis.Redis(host=config.VALKEY_IP, port=config.VALKEY_PORT, db=0)

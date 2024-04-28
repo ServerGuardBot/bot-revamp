@@ -1,8 +1,6 @@
-# Migrations
-.surrealdb
-
 # Docker
 docker-compose.override.yml
+/data/
 
 # Private Detector
 src/private_detector/frozen_model/

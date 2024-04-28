@@ -1,8 +1,8 @@
-version: '3.3'
+version: '3.8'
 
 services:
   server-guard:
-    container_name: server_guard
+    container_name: server-guard
     build:
       context: .
       dockerfile: Dockerfile
@@ -10,11 +10,22 @@ services:
       - ./:/app
     ports:
       - "7777:7777"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7777/metrics"]
+      interval: 1m30s
+      timeout: 30s
+      retries: 3
+      start_period: 2m
     depends_on:
       - prometheus
       - grafana
       - surrealdb
       - valkey
+    environment:
+      - DATABASE_IP=surrealdb
+      - GRAFANA_ROOT=http://grafana:3002
+      - PROMETHEUS_ROOT=http://prometheus:9090
+      - VALKEY_IP=valkey
     restart: always
 
   surrealdb:
@@ -25,8 +36,12 @@ services:
     command:
       - start
       - --log=trace
+      - --auth
       - --user=root
       - --pass=root
+      - file://database.db
+    volumes:
+      - ./data/surrealdb.db:/database.db
     restart: always
   
   valkey:
@@ -34,12 +49,15 @@ services:
     container_name: valkey
     command:
       - valkey-server
-      - --save 60 1
-      - --loglevel warning
+      - /valkey.conf
+    volumes:
+      - ./config/valkey.conf:/valkey.conf
+    expose:
+      - "6379"
     restart: always
   
   grafana:
-    image: grafana/grafana:6.0.1
+    image: grafana/grafana:latest
     container_name: grafana
     user: "0"
     environment:
@@ -51,7 +69,28 @@ services:
       - ./config/dashboards:/tmp/dashboards
       - ./data/grafana:/var/lib/grafana
     ports:
-      - "3000:3000"
+      - "3002:3002"
+    restart: always
+  
+  loki:
+    container_name: loki
+    image: grafana/loki:latest
+    user: root
+    expose:
+      - "3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./config/loki.yml:/etc/loki/local-config.yaml
+    restart: always
+
+  promtail:
+    container_name: promtail
+    image: grafana/promtail:latest
+    user: root
+    volumes:
+      - /var/log:/var/log
+      - ./config/promtail.yml:/etc/promtail/config.yaml
+    command: -config.file=/etc/promtail/config.yaml
     restart: always
   
   prometheus:
@@ -66,8 +105,9 @@ services:
       - "9090:9090"
     volumes:
       - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./config/pd.rules.yml:/etc/prometheus/pd.rules.yml:ro
-      - ./config/tikv.rules.yml:/etc/prometheus/tikv.rules.yml:ro
-      - ./config/tidb.rules.yml:/etc/prometheus/tidb.rules.yml:ro
       - ./data:/data
     restart: always
+
+networks:
+  default:
+    name: serverguard
