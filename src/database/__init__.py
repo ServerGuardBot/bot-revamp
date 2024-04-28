@@ -16,3 +16,5 @@ import database.statuses
 import database.analytics
 import database.auth
 import database.proxy
+import database.data
+import database.rss
