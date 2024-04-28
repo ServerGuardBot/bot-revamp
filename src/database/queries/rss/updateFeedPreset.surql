@@ -1,0 +1,1 @@
+UPDATE type::thing("feed_preset", $id) MERGE $payload;

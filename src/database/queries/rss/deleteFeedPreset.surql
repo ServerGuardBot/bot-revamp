@@ -1,0 +1,1 @@
+DELETE type::thing("feed_preset", $id);
