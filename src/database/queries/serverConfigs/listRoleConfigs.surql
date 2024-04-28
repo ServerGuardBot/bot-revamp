@@ -1,0 +1,1 @@
+SELECT * FROM role_config WHERE guild_id == $guild && type == $type;

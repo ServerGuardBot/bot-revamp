@@ -1,0 +1,1 @@
+SELECT * FROM channel_config WHERE meta::id(id) == $id AND type == $type;

@@ -1,0 +1,1 @@
+SELECT * FROM channel_config WHERE guild_id == $guild && type == $type;

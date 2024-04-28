@@ -402,3 +402,123 @@ class Server(DatabaseModel):
                     return raw
                 else:
                     raise DatabaseError(result[0]["result"])
+
+class ChannelConfigType(Enum):
+    RSS = "RSS"
+
+class ChannelConfig(DatabaseModel):
+    def __init__(self, data: dict):
+        self.guild_id: str = data["guild_id"]
+        self.channel_id: str = data["channel_id"]
+        self.type: ChannelConfigType = ChannelConfigType(data["type"])
+        self.created_at: datetime = data["created"]
+        
+        self.extra_data: dict = {}
+        for key, value in data.items():
+            if not key in ["guild_id", "channel_id", "type", "created"]:
+                self.extra_data[key] = value
+    
+    async def update(
+        self,
+        **kwargs
+    ):
+        if "guild_id" in kwargs:
+            kwargs.pop("guild_id")
+        if "channel_id" in kwargs:
+            kwargs.pop("channel_id")
+        if "type" in kwargs:
+            kwargs.pop("type")
+        if "created" in kwargs:
+            kwargs.pop("created")
+
+        async with DBConnection() as db:
+            filtered_args = {}
+            for key, value in kwargs.items():
+                if value is None: continue
+                filtered_args[key] = value
+            try:
+                response = await db.query(loadQuery("updateChannelConfig"), {
+                    "id": self.id,
+                    "payload": filtered_args
+                })
+            except Exception as e:
+                raise DatabaseError(str(e))
+            else:
+                if resultExists(response):
+                    for key, value in kwargs.items():
+                        self.extra_data[key] = value
+                        self.__raw[key] = value
+                else:
+                    raise DatabaseError(response[0]["result"])
+    
+    async def delete(self):
+        async with DBConnection() as db:
+            try:
+                response = await db.query(loadQuery("deleteChannelConfig"), {"id": self.id})
+            except Exception as e:
+                raise DatabaseError(str(e))
+            else:
+                if resultExists(response):
+                    pass
+                else:
+                    raise DatabaseError(response[0]["result"])
+
+class RoleConfigType(Enum):
+    AUTOROLE = "AUTOROLE"
+
+class RoleConfig(DatabaseModel):
+    def __init__(self, data: dict):
+        self.guild_id: str = data["guild_id"]
+        self.role_id: str = data["role_id"]
+        self.type: RoleConfigType = RoleConfigType(data["type"])
+        self.created_at: datetime = data["created"]
+
+        self.extra_data: dict = {}
+        for key, value in data.items():
+            if not key in ["guild_id", "role_id", "type", "created"]:
+                self.extra_data[key] = value
+    
+    async def update(
+        self,
+        **kwargs
+    ):
+        if "guild_id" in kwargs:
+            kwargs.pop("guild_id")
+        if "role_id" in kwargs:
+            kwargs.pop("role_id")
+        if "type" in kwargs:
+            kwargs.pop("type")
+        if "created" in kwargs:
+            kwargs.pop("created")
+
+        async with DBConnection() as db:
+            filtered_args = {}
+            for key, value in kwargs.items():
+                if value is None: continue
+                filtered_args[key] = value
+            try:
+                response = await db.query(loadQuery("updateRoleConfig"), {
+                    "id": self.id,
+                    "payload": filtered_args
+                })
+            except Exception as e:
+                raise DatabaseError(str(e))
+            else:
+                if resultExists(response):
+                    for key, value in kwargs.items():
+                        self.extra_data[key] = value
+                        self.__raw[key] = value
+                else:
+                    raise DatabaseError(response[0]["result"])
+    
+    async def delete(self):
+        async with DBConnection() as db:
+            try:
+                response = await db.query(loadQuery("deleteRoleConfig"), {"id": self.id})
+            except Exception as e:
+                raise DatabaseError(str(e))
+            else:
+                if resultExists(response):
+                    pass
+                else:
+                    raise DatabaseError(response[0]["result"])

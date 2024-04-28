@@ -1,0 +1,1 @@
+UPDATE type::thing("role_config", $id) MERGE $payload;

@@ -1,0 +1,1 @@
+CREATE channel_config CONTENT $payload;

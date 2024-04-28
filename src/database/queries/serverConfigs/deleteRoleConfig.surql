@@ -1,0 +1,1 @@
+DELETE type::thing("role_config", $id);

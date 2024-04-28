@@ -1,0 +1,1 @@
+UPDATE type::thing("channel_config", $id) MERGE $payload;

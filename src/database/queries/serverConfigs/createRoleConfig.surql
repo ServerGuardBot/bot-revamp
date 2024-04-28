@@ -1,0 +1,1 @@
+CREATE role_config CONTENT $payload;
