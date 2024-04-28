@@ -63,7 +63,29 @@ class TranslationContext:
         return i18n.t(key, locale=self.locale)
 
 class Translator:
-    async def __init__(
+    def __init__(
+        self,
+        user_locale: str,
+        guild_locale: str
+    ):
+        if user_locale:
+            self.user = TranslationContext(user_locale)
+        else:
+            if guild_locale:
+                self.user = TranslationContext(guild_locale)
+            else:
+                self.user = TranslationContext("en")
+        
+        if guild_locale and not user_locale:
+            self.guild = TranslationContext(guild_locale)
+        else:
+            if user_locale:
+                self.guild = TranslationContext(user_locale)
+            else:
+                self.guild = TranslationContext("en")
+
+    @classmethod
+    async def create(
         self,
         server_id: str,
         user_id: str,
@@ -84,26 +106,10 @@ class Translator:
                 print(e)
             else:
                 guild_locale = guild.settings.get("language", "en")
-        
-        if user_locale:
-            self.user = TranslationContext(user_locale)
-        else:
-            if guild_locale:
-                self.user = TranslationContext(guild_locale)
-            else:
-                self.user = TranslationContext("en")
-        
-        if guild_locale and not user_locale:
-            self.guild = TranslationContext(guild_locale)
-        else:
-            if user_locale:
-                self.guild = TranslationContext(user_locale)
-            else:
-                self.guild = TranslationContext("en")
     
     @classmethod
     async def from_context(cls, ctx: commands.Context):
-        return await cls(
+        return await cls.create(
             server_id=ctx.server.id,
             user_id=ctx.author.id
         )
