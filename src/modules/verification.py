@@ -1,5 +1,5 @@
+from core.checks import listener, is_module_enabled, module
 from core.embeds import EMBED_STANDARD, EMBED_FILTERED
-from core.checks import listener, is_module_enabled
 from core.images import IMAGE_DEFAULT_AVATAR
 from werkzeug.exceptions import BadRequest
 from quart_rate_limiter import rate_limit
@@ -296,6 +296,7 @@ class Verification(commands.Cog):
                                 "Yes"
                             )
                             em.set_thumbnail(url=guild_user.display_avatar.url)
+                            await db.data.increment("verifications", 1)
                             await logs_channel.send(embed=em)
                         
                         if verified_role:
