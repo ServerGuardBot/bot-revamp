@@ -1,0 +1,1 @@
+SELECT value FROM type::thing("bot_data", $id);

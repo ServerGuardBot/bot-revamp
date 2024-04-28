@@ -1,0 +1,1 @@
+UPDATE type::thing("bot_data", $id) SET value = $value;
