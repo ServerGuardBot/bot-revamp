@@ -1,4 +1,4 @@
-from database import DBConnection, loadQuery, resultExists, valkey, encoder, decoder, UserPermissions, DatabaseModel
+from database import DBConnection, loadQuery, resultExists, valkey, encoder, decoder, DatabaseModel
 from database.exceptions import DatabaseError
 from surrealdb.ws import SurrealException
 
