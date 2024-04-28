@@ -2,6 +2,7 @@ from prometheus_client import Counter, Histogram
 from quart import Quart, jsonify, request
 from guilded.ext import commands, tasks
 from quart_cors import route_cors
+from functools import wraps
 
 import database as db
 import guilded
@@ -79,10 +80,15 @@ class Metrics(commands.Cog):
         
         @app.before_request
         async def before_request():
+            if request.remote_addr == "127.0.0.1":
+                return
             request.start_time = time.time()
         
         @app.after_request
         async def after_request(response):
+            if request.remote_addr == "127.0.0.1":
+                return response
+
             request_latency = time.time() - request.start_time
             self.request_latency.labels(request.method, request.path).observe(request_latency)
 
