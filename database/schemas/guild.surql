@@ -11,7 +11,7 @@ DEFINE FIELD bio ON guild TYPE option<string>;
 DEFINE FIELD avatar ON guild TYPE option<string>;
 DEFINE FIELD members ON guild TYPE number DEFAULT 1;
 
-DEFINE FIELD first_seen ON guild TYPE datetime DEFAULT time::now();
+DEFINE FIELD first_seen ON guild TYPE datetime DEFAULT time::now() READONLY;
 
 DEFINE INDEX guildNameIndex ON TABLE guild COLUMNS name SEARCH ANALYZER ascii BM25 HIGHLIGHTS;
 DEFINE INDEX guildBioIndex ON TABLE guild COLUMNS bio SEARCH ANALYZER ascii BM25 HIGHLIGHTS;

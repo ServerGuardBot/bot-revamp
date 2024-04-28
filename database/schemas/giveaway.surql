@@ -1,5 +1,7 @@
 DEFINE TABLE giveaway SCHEMAFULL;
 
+DEFINE FIELD created_at ON giveaway TYPE datetime DEFAULT time::now() READONLY;
+
 DEFINE FIELD guild_id ON giveaway TYPE string;
 DEFINE FIELD channel_id ON giveaway TYPE string;
 DEFINE FIELD message_id ON giveaway TYPE string;
