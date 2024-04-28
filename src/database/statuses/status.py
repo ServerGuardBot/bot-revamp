@@ -42,3 +42,17 @@ class TempBan(UserStatus):
         super().__init__(data)
 
         self.reason: str = data["reason"]
+
+class Autorole(UserStatus):
+    def __init__(self, data: dict):
+        super().__init__(data)
+        
+        self.role_id: str = data["role_id"]
+        self.autorole: str = data["autorole"]
+
+class Mute(UserStatus):
+    def __init__(self, data: dict):
+        super().__init__(data)
+
+        self.reason: str = data["reason"]
+        self.issuer: str = data["issuer"]

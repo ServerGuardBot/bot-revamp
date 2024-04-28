@@ -5,7 +5,7 @@ from typing import Union, List
 
 from .status import *
 
-async def get_statuses(types: List[str], guild_id:str, user_id:str) -> List[Union[UserStatus, Warning, TempBan, Reminder]]:
+async def get_statuses(types: List[str], guild_id:str, user_id:str) -> List[Union[UserStatus, Warning, TempBan, Reminder, Autorole, Mute]]:
     key = f"db:statuses:{guild_id}:{user_id}:{str(hash(tuple(types)))}"
     cached = valkey.get(key)
     if cached:
@@ -18,6 +18,10 @@ async def get_statuses(types: List[str], guild_id:str, user_id:str) -> List[Unio
                 res.append(TempBan(raw))
             elif raw["type"] == "reminder":
                 res.append(Reminder(raw))
+            elif raw["type"] == "autorole":
+                res.append(Autorole(raw))
+            elif raw["type"] == "mute":
+                res.append(Mute(raw))
             else:
                 res.append(UserStatus(raw))
         return res
@@ -41,11 +45,15 @@ async def get_statuses(types: List[str], guild_id:str, user_id:str) -> List[Unio
                     res.append(TempBan(raw))
                 elif raw["type"] == "reminder":
                     res.append(Reminder(raw))
+                elif raw["type"] == "autorole":
+                    res.append(Autorole(raw))
+                elif raw["type"] == "mute":
+                    res.append(Mute(raw))
                 else:
                     res.append(UserStatus(raw))
             return res
 
-async def get_status(id: str) -> Union[UserStatus, Warning, TempBan, Reminder]:
+async def get_status(id: str) -> Union[UserStatus, Warning, TempBan, Reminder, Autorole, Mute]:
     cached = valkey.get(f"db:statuses:{id}")
     if cached:
         raw = decoder.decode(cached.decode("utf-8"))
@@ -55,6 +63,10 @@ async def get_status(id: str) -> Union[UserStatus, Warning, TempBan, Reminder]:
             return TempBan(raw)
         elif raw["type"] == "reminder":
             return Reminder(raw)
+        elif raw["type"] == "autorole":
+            return Autorole(raw)
+        elif raw["type"] == "mute":
+            return Mute(raw)
         else:
             return UserStatus(raw)
     async with DBConnection() as db:
@@ -74,6 +86,10 @@ async def get_status(id: str) -> Union[UserStatus, Warning, TempBan, Reminder]:
                 return TempBan(raw)
             elif raw["type"] == "reminder":
                 return Reminder(raw)
+            elif raw["type"] == "autorole":
+                return Autorole(raw)
+            elif raw["type"] == "mute":
+                return Mute(raw)
             else:
                 return UserStatus(raw)
         else:
@@ -88,7 +104,7 @@ async def expire_statuses(ids: List[str]):
         except SurrealException as e:
             raise DatabaseError(str(e))
 
-async def get_expired_statuses(types: List[str]) -> List[Union[UserStatus, Warning, TempBan, Reminder]]:
+async def get_expired_statuses(types: List[str]) -> List[Union[UserStatus, Warning, TempBan, Reminder, Autorole, Mute]]:
     async with DBConnection() as db:
         try:
             result = await db.query(loadQuery("getExpiredStatuses", {
@@ -106,6 +122,10 @@ async def get_expired_statuses(types: List[str]) -> List[Union[UserStatus, Warni
                     res.append(TempBan(raw))
                 elif raw["type"] == "reminder":
                     res.append(Reminder(raw))
+                elif raw["type"] == "autorole":
+                    res.append(Autorole(raw))
+                elif raw["type"] == "mute":
+                    res.append(Mute(raw))
                 else:
                     res.append(UserStatus(raw))
             return res
