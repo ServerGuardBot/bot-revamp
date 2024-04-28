@@ -3,6 +3,7 @@ from core.embeds import EMBED_DENIED, EMBED_STANDARD, EMBED_SUCCESS
 from core.converters import UserConverter, MemberConverter
 from humanfriendly import parse_timespan, format_timespan
 from guilded.ext import commands, tasks
+from modules.autoroles import Autoroles
 from datetime import datetime
 
 import database as db
@@ -195,6 +196,137 @@ class Moderation(commands.Cog):
                     )
                     .add_field(name="Reason", value=reason)
                 )
+    
+    @commands.command()
+    @has_permissions(commands_mute=True)
+    @module("moderation")
+    async def mute(self, ctx: commands.Context, member: MemberConverter, timespan: str = None, *reason: str):
+        """
+        Mute a member from the server
+        """
+        reason: str = " ".join(reason)
+        if member:
+            if not isinstance(member, guilded.Member):
+                await ctx.reply(embed=EMBED_DENIED(
+                    title="Invalid Member",
+                    description=f"You cannot mute a non-member!"
+                ))
+                return
+            if member.bot:
+                await ctx.reply(embed=EMBED_DENIED(
+                    title="Invalid Member",
+                    description=f"You cannot mute a bot!"
+                ))
+                return
+            if await user_has_any_permissions(
+                member,
+                commands_ban=True,
+                commands_kick=True,
+                manage_moderation=True
+            ):
+                await ctx.reply(embed=EMBED_DENIED(
+                    title="Invalid Member",
+                    description=f"You cannot mute another admin!"
+                ))
+            if timespan is not None:
+                try:
+                    # We're only doing this to verify that it
+                    # would be something the database can
+                    # automatically convert to a duration
+                    parse_timespan(timespan)
+                except:
+                    reason = f"{timespan} {reason}"
+                    timespan = None
+            if reason.rstrip() == "":
+                reason = "No reason provided."
+            try:
+                guild = await db.servers.fetch_or_create_server(ctx.server)
+            except:
+                raise commands.CommandError("An unknown error occurred")
+            else:
+                if guild.settings.get("mute_role", "") == "":
+                    await ctx.reply(embed=EMBED_DENIED(
+                        title="Failure",
+                        description=f"This server does not have a mute role set!"
+                    ))
+                    return
+                try:
+                    await member.add_role(guilded.Object(guild.settings["mute_role"]))
+                except:
+                    await ctx.reply(embed=EMBED_DENIED(
+                        title="Failure",
+                        description=f"An error occurred while muting {member.mention}!"
+                    ))
+                else:
+                    if timespan is not None:
+                        try:
+                            user = await guild.fetch_or_create_member(member)
+                            await user.mute(timespan, reason)
+                        except:
+                            await ctx.reply(embed=EMBED_DENIED(
+                                title="Failure",
+                                description=f"An error occurred while muting {member.mention}!"
+                            ))
+                        else:
+                            await ctx.reply(embed=EMBED_SUCCESS(
+                                title="Success",
+                                description=f"Successfully muted {member.mention}!"
+                            ))
+                    else:
+                        await ctx.reply(embed=EMBED_SUCCESS(
+                            title="Success",
+                            description=f"Successfully muted {member.mention}!"
+                        ))
+    
+    async def unmute(self, ctx: commands.Context, member: MemberConverter):
+        """
+        Unmute a member from the server
+        """
+        if member:
+            if not isinstance(member, guilded.Member):
+                await ctx.reply(embed=EMBED_DENIED(
+                    title="Invalid Member",
+                    description=f"You cannot unmute a non-member!"
+                ))
+                return
+            if member.bot:
+                await ctx.reply(embed=EMBED_DENIED(
+                    title="Invalid Member",
+                    description=f"You cannot unmute a bot!"
+                ))
+                return
+            try:
+                guild = await db.servers.fetch_or_create_server(ctx.server)
+            except:
+                raise commands.CommandError("An unknown error occurred")
+            else:
+                if guild.settings.get("mute_role", "") == "":
+                    await ctx.reply(embed=EMBED_DENIED(
+                        title="Failure",
+                        description=f"This server does not have a mute role set!"
+                    ))
+                    return
+                try:
+                    await member.remove_role(guilded.Object(guild.settings["mute_role"]))
+                except:
+                    await ctx.reply(embed=EMBED_DENIED(
+                        title="Failure",
+                        description=f"An error occurred while unmuting {member.mention}!"
+                    ))
+                else:
+                    try:
+                        user = await guild.fetch_or_create_member(member)
+                        await user.unmute()
+                    except:
+                        await ctx.reply(embed=EMBED_DENIED(
+                            title="Failure",
+                            description=f"An error occurred while unmuting {member.mention}!"
+                        ))
+                    else:
+                        await ctx.reply(embed=EMBED_SUCCESS(
+                            title="Success",
+                            description=f"Successfully unmuted {member.mention}!"
+                        ))
     
     @commands.command()
     @has_permissions(commands_purge=True)
@@ -550,7 +682,7 @@ class Moderation(commands.Cog):
     @tasks.loop(seconds=5)
     async def check_statuses(self):
         try:
-            statuses = await db.statuses.get_expired_statuses(["tempban", "mute", "warn"])
+            statuses = await db.statuses.get_expired_statuses(["tempban", "mute", "warn", "autorole"])
         except:
             pass
         else:
@@ -584,6 +716,23 @@ class Moderation(commands.Cog):
                                 pass
                             else:
                                 # TODO: Notify the user when possible
+                                pass
+                elif status.type == "autorole":
+                    autoroles: Autoroles = self.bot.get_cog("Autoroles")
+                    try:
+                        autorole = await db.autoroles.get_autorole(status.autorole)
+                    except:
+                        pass
+                    else:
+                        try:
+                            server = await self.bot.getch_server(status.guild_id)
+                            member = await server.getch_member(status.user_id)
+                        except:
+                            pass
+                        else:
+                            try:
+                                await autoroles.update_autoroles(member, [autorole])
+                            except:
                                 pass
                 to_expire.append(status.id)
             try:
