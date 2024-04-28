@@ -36,9 +36,9 @@ class Analytics(commands.Cog):
                 print(f"Failed to get user count: {str(e)}")
                 raise InternalServerError
             try:
-                verifications = await db.analytics.get_analytics_item("verifications", datetime.now())
+                verifications = await db.data.get("verifications")
                 if verifications:
-                    verifications = verifications.score
+                    verifications = verifications
                 else:
                     verifications = 2034
             except Exception as e:
