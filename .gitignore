@@ -1,3 +1,6 @@
+# Logs
+/logs/
+
 # Docker
 docker-compose.override.yml
 /data/
