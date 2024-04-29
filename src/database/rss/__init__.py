@@ -184,14 +184,36 @@ async def get_feed_presets() -> List[FeedPreset]:
         else:
             if resultExists(response):
                 valkey.set("db:feed_presets", encoder.encode(response[0]["result"]), 86400)
-                return [FeedPreset(raw) for raw in response[0]["result"]]
+                presets = [FeedPreset(raw) for raw in response[0]["result"]]
+                for preset in presets:
+                    valkey.set(f"db:feed_presets:{preset.id}", encoder.encode(preset.__raw), 86400)
+                return presets
             else:
                 return []
 
+async def fetch_feed_preset(id: str) -> FeedPreset:
+    cached = valkey.get(f"db:feed_presets:{id}")
+    if cached:
+        return FeedPreset(decoder.decode(cached))
+    async with DBConnection() as db:
+        try:
+            response = await db.query(loadQuery("getFeedPreset"), {
+                "id": id
+            })
+        except SurrealException as e:
+            raise DatabaseError(str(e))
+        else:
+            if resultExists(response):
+                preset = FeedPreset(response[0]["result"][0])
+                valkey.set(f"db:feed_presets:{id}", encoder.encode(preset.__raw), 86400)
+                return preset
+            else:
+                raise NotFound("Feed preset not found.")
+
 async def create_feed_preset(
     name: str,
-    description: str,
     url: str,
+    description: str,
     extra_fields: dict
 ):
     async with DBConnection() as db:
@@ -211,6 +233,8 @@ async def create_feed_preset(
                     cached = decoder.decode(cached)
                     cached.append(response[0]["result"][0])
                     valkey.set("db:feed_presets", encoder.encode(cached), 86400)
-                return FeedPreset(response[0]["result"][0])
+                preset = FeedPreset(response[0]["result"][0])
+                valkey.set(f"db:feed_presets:{preset.id}", encoder.encode(preset.__raw), 86400)
+                return preset
             else:
                 raise DatabaseError("Failed to create feed preset.")

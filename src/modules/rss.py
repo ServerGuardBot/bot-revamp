@@ -394,7 +394,6 @@ class RSS(commands.Cog):
                     else:
                         return jsonify({"status": "success"})
         
-        # TODO: Developer routes for creating, editing, and deleting feed presets
         @app.route("/rss/preset", methods=["POST"])
         @route_cors(allow_headers=["content-type"], allow_methods=["POST"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         @authenticated
@@ -410,7 +409,7 @@ class RSS(commands.Cog):
                     or data.get("description") is None:
                     return jsonify({"status": "error", "error": "Missing required fields."}), 400
                 try:
-                    result = await db.rss.create_rss_preset(
+                    result = await db.rss.create_feed_preset(
                         data["name"],
                         data["url"],
                         data["description"],
@@ -426,6 +425,68 @@ class RSS(commands.Cog):
                         "description": result.description,
                         "extra_fields": result.extra_data
                     }})
+        
+        @app.route("/rss/preset/<string:preset_id>", methods=["PATCH"])
+        @route_cors(allow_headers=["content-type"], allow_methods=["PATCH"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @authenticated
+        @developer_only
+        async def UpdateRSSPreset(preset_id: str):
+            try:
+                preset = await db.rss.fetch_feed_preset(
+                    preset_id
+                )
+            except db.NotFound:
+                return jsonify({"status": "error", "error": "Preset not found."}), 404
+            except:
+                return jsonify({"status": "error", "error": "Something went wrong while fetching preset."}), 500
+            else:
+                try:
+                    data = await request.get_json()
+                except:
+                    return jsonify({"status": "error", "error": "Something went wrong while parsing request data."}), 500
+                else:
+                    filtered_payload = {}
+                    for key, value in data.items():
+                        if not key in ["name", "url", "description", "extra_fields"]: continue
+                        if value is not None:
+                            filtered_payload[key] = value
+                    if len(filtered_payload) == 0:
+                        return jsonify({"status": "error", "error": "No fields to update."}), 400
+                    try:
+                        await preset.update(
+                            **filtered_payload
+                        )
+                    except:
+                        return jsonify({"status": "error", "error": "Something went wrong while updating preset."}), 500
+                    else:
+                        return jsonify({"status": "success", "preset": {
+                            "id": preset.id,
+                            "name": preset.name,
+                            "url": preset.url,
+                            "description": preset.description,
+                            "extra_fields": preset.extra_data
+                        }})
+        
+        @app.route("/rss/preset/<string:preset_id>", methods=["DELETE"])
+        @route_cors(allow_headers=["content-type"], allow_methods=["DELETE"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @authenticated
+        @developer_only
+        async def DeleteRSSPreset(preset_id: str):
+            try:
+                preset = await db.rss.fetch_feed_preset(
+                    preset_id
+                )
+            except db.NotFound:
+                return jsonify({"status": "error", "error": "Preset not found."}), 404
+            except:
+                return jsonify({"status": "error", "error": "Something went wrong while fetching preset."}), 500
+            else:
+                try:
+                    await preset.delete()
+                except:
+                    return jsonify({"status": "error", "error": "Something went wrong while deleting preset."}), 500
+                else:
+                    return jsonify({"status": "success"})
 
 def setup(bot: commands.Bot):
     bot.add_cog(RSS(bot))
