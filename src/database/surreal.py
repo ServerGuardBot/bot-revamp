@@ -14,6 +14,9 @@ for file in glob.glob(path.join(path.abspath(path.dirname(__file__)), "queries",
 def resultExists(result, index: int=0, accept_empty: bool=False):
     return (len(result[index]["result"]) > 0 or accept_empty) and result[index]["status"] == "OK"
 
+def allOk(result):
+    return all([r["status"] == "OK" for r in result])
+
 def loadQuery(name: str):
     return queries[name]
 

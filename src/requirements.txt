@@ -10,8 +10,7 @@ markdownify
 unidecode
 beautifulsoup4
 lxml
-quart==0.19.4
-quart-cors==0.7.0
+quart
 quart-rate-limiter
 hypercorn
 surrealdb

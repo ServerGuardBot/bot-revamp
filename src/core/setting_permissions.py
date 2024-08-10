@@ -9,6 +9,7 @@ unverified_role = ["manage_verification"]
 verified_role = ["manage_verification"]
 muted_role = ["manage_moderation"]
 
+verification_channel = ["manage_verification"]
 admin_contact = ["manage_verification"]
 raid_guard = ["manage_verification"]
 block_tor = ["manage_verification"]
@@ -19,6 +20,9 @@ filter_api_keys_restrictions = ["manage_automod"]
 
 malicious_urls = ["manage_automod"]
 malicious_urls_restrictions = ["manage_automod"]
+
+filter_mass_mentions = ["manage_automod"]
+filter_mass_mentions_restrictions = ["manage_automod"]
 
 filter_invites = ["manage_automod"]
 filter_invites_restrictions = ["manage_automod"]

@@ -1,7 +1,6 @@
 from core.checks_api import authenticated, dashboard_access, has_permissions
 from core.embeds import EMBED_STANDARD, EMBED_DENIED, EMBED_SUCCESS
 from quart import Quart, jsonify, request
-from quart_cors import route_cors
 from guilded.ext import commands
 from guilded.http import Route
 from core import checks

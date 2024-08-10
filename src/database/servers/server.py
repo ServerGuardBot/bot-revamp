@@ -1,8 +1,9 @@
-from database import DBConnection, loadQuery, resultExists, valkey, encoder, decoder, UserPermissions, DatabaseModel
+from database import DBConnection, loadQuery, resultExists, allOk, valkey, encoder, decoder, UserPermissions, DatabaseModel
 from typing import Optional, TypedDict, List, Dict, Optional, Union
 from database.exceptions import DatabaseError, NotInServer
 from core.images import IMAGE_DEFAULT_AVATAR
 from surrealdb.ws import SurrealException
+from core import setting_defaults
 from datetime import datetime
 from .user import ServerUser
 from enum import Enum
@@ -109,16 +110,11 @@ class ServerSettings(TypedDict, total=False):
     giveaway_ping_role: Optional[guilded.Role]
     giveaway_channel: Optional[guilded.ChatChannel]
 
-class AuditLog:
+class AuditLog(DatabaseModel):
     def __init__(self, data: dict):
         super().__init__(data)
 
         self.server_id: str = data["guild_id"]
-        
-        if len(data["id"].split(":")) > 1:
-            self.id: str = data["id"].split(":")[1]
-        else:
-            self.id: str = data["id"]
         
         self.originator_id: str = data["originator_id"]
         self.event_name: str = data["event_name"]
@@ -155,22 +151,26 @@ class Server(DatabaseModel):
     
     @property
     def is_premium(self) -> bool:
-        return self.__raw["premium"][0] == "1"
+        return self.raw["premium"][0] == "1"
     
-    def serialize_settings(self, settings: dict) -> dict:
+    def serialize_settings(self, settings: dict=None) -> dict:
         if settings is None:
             settings = self.settings
-        data = {}
+        data: dict = {}
         for key in settings:
             if key == "welcome_image_cycle" or key == "goodbye_image_cycle":
                 value = settings[key].value
-            elif key.endswith("_role"):
-                value = settings[key].id
-            elif key.endswith("_channel") or key.startswith("logs"):
-                value = settings[key].id
+            # elif key.endswith("_role"):
+            #     value = settings[key].id
+            # elif key.endswith("_channel") or key.startswith("logs"):
+            #     value = settings[key].id
             else:
                 value = settings[key]
             data[key] = value
+        for key in ServerSettings.__annotations__.keys():
+            if not settings.get(key):
+                if getattr(setting_defaults, key, None):
+                    data[key] = getattr(setting_defaults, key)
         return data
     
     async def deserialize_settings(self, data: dict):
@@ -181,32 +181,34 @@ class Server(DatabaseModel):
                 value = data[key]
                 if key == "welcome_image_cycle" or key == "goodbye_image_cycle":
                     value = WelcomerCycle(value)
-                elif key.endswith("_role"):
-                    try:
-                        value = await bot_server.getch_role(value)
-                    except:
-                        value = None
-                elif key.endswith("_channel") or key.startswith("logs"):
-                    try:
-                        value = await bot_server.getch_channel(value)
-                    except:
-                        value = None
+                # elif key.endswith("_role"):
+                #     try:
+                #         value = await bot_server.getch_role(value)
+                #     except:
+                #         value = None
+                # elif key.endswith("_channel") or key.startswith("logs"):
+                #     try:
+                #         value = await bot_server.getch_channel(value)
+                #     except:
+                #         value = None
                 self.settings[key] = value
     
     async def update_settings(self, **kwargs):
         async with DBConnection() as db:
             try:
-                response = await db.query(loadQuery("updateGuildSettings"), {"guild": self.id, "settings": self.serialize_settings(dict(**kwargs))})
+                response = await db.query(loadQuery("updateGuildSettings"), {"id": self.id, "settings": self.serialize_settings(dict(**kwargs))})
             except SurrealException as e:
                 raise DatabaseError(str(e))
             else:
-                if resultExists(response):
-                    await self.deserialize_settings(response[0]["result"][0])
+                if allOk(response):
+                    await self.deserialize_settings(dict(**kwargs))
                     serialized = self.serialize_settings()
                     for key in serialized:
-                        self.__raw[key] = serialized[key]
-                    valkey.set(f"db:server:{self.id}", encoder.encode(self.__raw), 86400)
+                        self.raw[key] = serialized[key]
+                    valkey.set(f"db:server:{self.id}", encoder.encode(self.raw), 86400)
                     return True
+                else:
+                    raise DatabaseError(response[0]["result"])
 
     async def set_active(self, active: bool):
         async with DBConnection() as db:
@@ -216,11 +218,12 @@ class Server(DatabaseModel):
                 raise DatabaseError(str(e))
             else:
                 if resultExists(response):
-                    self.__raw["active"] = active
-                    valkey.set(f"db:server:{self.id}", encoder.encode(self.__raw), 86400)
+                    self.raw["active"] = active
+                    valkey.set(f"db:server:{self.id}", encoder.encode(self.raw), 86400)
                     return True
     
     async def create_audit_log(self, payload: dict) -> AuditLog:
+        payload["guild_id"] = self.id
         async with DBConnection() as db:
             try:
                 response = await db.query(loadQuery("createAuditLog"), {"guild": self.id, "payload": payload})
@@ -229,11 +232,13 @@ class Server(DatabaseModel):
             else:
                 if resultExists(response):
                     return AuditLog(response[0]["result"][0])
+                else:
+                    raise DatabaseError(response[0]["result"])
     
     async def get_audit_log_users(self):
         cached = valkey.get(f"db:audit_log_users:{self.id}")
         if cached:
-            return cached
+            return decoder.decode(cached.decode("utf-8"))
         async with DBConnection() as db:
             try:
                 result = await db.query(loadQuery("getAuditLogUsers"), {"guild": self.id})
@@ -242,7 +247,7 @@ class Server(DatabaseModel):
             else:
                 if resultExists(result):
                     raw = result[0]["result"]
-                    valkey.set(f"db:audit_log_users:{self.id}", encoder.encode(raw), 86400)
+                    valkey.set(f"db:audit_log_users:{self.id}", encoder.encode(raw), 60 * 15)
                     return raw
                 else:
                     raise DatabaseError(result[0]["result"])
@@ -256,12 +261,23 @@ class Server(DatabaseModel):
         limit: int=50,
         page: int=0
     ) -> List[AuditLog]:
-        filter_key = f"db:audit_logs:{self.id}:{start}:{end}:{authors}:{event_names}:{limit}:{page}"
+        t = tuple([self.id, limit, page])
+        if start is not None:
+            t += tuple(start.timestamp())
+        if end is not None:
+            t += tuple(end.timestamp())
+        if authors is not None:
+            t += tuple(authors)
+        if event_names is not None:
+            t += tuple(event_names)
+        key = str(hash(t))
+        filter_key = f"db:audit_logs:{key}"
         cached = valkey.get(filter_key)
         if cached:
+            cached = decoder.decode(cached.decode("utf-8"))
             return [
-                AuditLog(item) for item in decoder.decode(cached.decode("utf-8"))
-            ]
+                AuditLog(item) for item in cached[0]
+            ], cached[1]
         async with DBConnection() as db:
             try:
                 result = await db.query(loadQuery("listAuditLogs"), {
@@ -276,8 +292,11 @@ class Server(DatabaseModel):
             except SurrealException as e:
                 raise DatabaseError(str(e))
             else:
-                if resultExists(result) and resultExists(result, 1):
-                    valkey.set(filter_key, encoder.encode(result[0]["result"]), 86400)
+                if allOk(result):
+                    valkey.set(filter_key, encoder.encode([
+                        result[0]["result"],
+                        result[1]["result"][0]["count"]
+                    ]), 86400)
                     return [
                         AuditLog(item) for item in result[0]["result"]
                     ], result[1]["result"][0]["count"]
@@ -297,7 +316,7 @@ class Server(DatabaseModel):
             except SurrealException as e:
                 raise DatabaseError(str(e))
             else:
-                if resultExists(result):
+                if allOk(result):
                     raw = result[0]["result"]
                     valkey.set(f"db:banned_members:{self.id}", encoder.encode(raw), 86400)
                     response = []
@@ -315,9 +334,10 @@ class Server(DatabaseModel):
         except:
             new_perms: dict = self.settings.get("permissions", {})
 
-            roles = user._role_ids
+            roles = list(user._role_ids)
             if len(roles) == 0:
                 roles = await user.fetch_role_ids()
+                user._role_ids = set(roles)
             user_perms = UserPermissions()
             for id in roles:
                 perms = new_perms.get(str(id))
@@ -331,7 +351,8 @@ class Server(DatabaseModel):
                 str(user_perms),
                 await user.award_xp(0),
                 False,
-                user_perms.can_access_dash
+                user_perms.can_access_dash,
+                roles
             )
 
         return member
@@ -339,7 +360,7 @@ class Server(DatabaseModel):
     async def fetch_member(self, user_id: str):
         cached = valkey.get(f"db:server_user:{self.id}:{user_id}")
         if cached:
-            return ServerUser(cached.decode("utf-8"))
+            return ServerUser(decoder.decode(cached.decode("utf-8")))
         async with DBConnection() as db:
             try:
                 result = await db.query(loadQuery("getGuildUser"), {"guild": self.id, "id": user_id})
@@ -360,6 +381,7 @@ class Server(DatabaseModel):
         xp: int,
         is_banned: bool,
         can_access_dash: bool,
+        roles: list
     ):
         async with DBConnection() as db:
             try:
@@ -368,8 +390,9 @@ class Server(DatabaseModel):
                     "id": user_id,
                     "perms": perms,
                     "xp": xp,
-                    "is_banned": is_banned,
-                    "can_access_dash": can_access_dash,
+                    "banned": is_banned,
+                    "access": can_access_dash,
+                    "roles": roles
                 })
             except SurrealException as e:
                 raise DatabaseError(str(e))
@@ -408,6 +431,8 @@ class ChannelConfigType(Enum):
 
 class ChannelConfig(DatabaseModel):
     def __init__(self, data: dict):
+        super().__init__(data)
+
         self.guild_id: str = data["guild_id"]
         self.channel_id: str = data["channel_id"]
         self.type: ChannelConfigType = ChannelConfigType(data["type"])
@@ -435,6 +460,9 @@ class ChannelConfig(DatabaseModel):
             filtered_args = {}
             for key, value in kwargs.items():
                 if value is None: continue
+                if isinstance(value, datetime):
+                    value: datetime
+                    value = value.replace(tzinfo=None).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
                 filtered_args[key] = value
             try:
                 response = await db.query(loadQuery("updateChannelConfig"), {
@@ -446,8 +474,8 @@ class ChannelConfig(DatabaseModel):
             else:
                 if resultExists(response):
                     for key, value in kwargs.items():
-                        self.extra_data[key] = value
-                        self.__raw[key] = value
+                        self.raw[key] = response[0]["result"][0].get(key)
+                        self.__init__(self.raw) # Just call init again to handle class specific staff
                 else:
                     raise DatabaseError(response[0]["result"])
     
@@ -458,7 +486,7 @@ class ChannelConfig(DatabaseModel):
             except Exception as e:
                 raise DatabaseError(str(e))
             else:
-                if resultExists(response):
+                if allOk(response):
                     pass
                 else:
                     raise DatabaseError(response[0]["result"])
@@ -507,7 +535,7 @@ class RoleConfig(DatabaseModel):
                 if resultExists(response):
                     for key, value in kwargs.items():
                         self.extra_data[key] = value
-                        self.__raw[key] = value
+                        self.raw[key] = value
                 else:
                     raise DatabaseError(response[0]["result"])
     

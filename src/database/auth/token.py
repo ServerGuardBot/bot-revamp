@@ -41,15 +41,15 @@ class LoginToken(UserToken):
             except SurrealException as e:
                 raise DatabaseError(str(e))
             else:
-                self.__raw["user_id"] = user_id
-                valkey.set(f"db:user_token:{self.id}", encoder.encode(self.__raw), 60)
+                self.raw["user_id"] = user_id
+                valkey.set(f"db:user_token:{self.id}", encoder.encode(self.raw), 60)
 
 class VerifyToken(UserToken):
     def __init__(self, data: dict):
         super().__init__(data)
 
-        self.user_id = data["user_id"]
-        self.guild_id = data["guild_id"]
+        self.user_id = data.get("user_id")
+        self.guild_id = data.get("guild_id")
     
     @property
     def server_id(self):

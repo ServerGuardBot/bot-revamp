@@ -30,7 +30,7 @@ def listener(module: str):
         async def wrapper(cog: commands.Cog, event: guilded.ServerEvent):
             if getattr(event, "server") or getattr(event, "server_id"):
                     try:
-                        guild = await db.servers.fetch_or_create_server(getattr(event, "server", getattr(event, "server_id")))
+                        guild = await db.servers.fetch_server(getattr(event, "server", getattr(event, "server_id")))
                     except:
                         return None
                     else:
@@ -48,7 +48,7 @@ async def is_module_enabled(name: str, event: guilded.ServerEvent):
     """
     if getattr(event, "server") or getattr(event, "server_id"):
         try:
-            guild = await db.servers.fetch_or_create_server(getattr(event, "server", getattr(event, "server_id")))
+            guild = await db.servers.fetch_server(getattr(event, "server", getattr(event, "server_id")))
         except:
             return None
         else:
@@ -74,9 +74,9 @@ def module(name: str):
 async def user_has_permissions(user: guilded.Member, **permissions):
     if isinstance(user, guilded.Member):
         try:
-            guild = await db.servers.fetch_or_create_server(ctx.server)
+            guild = await db.servers.fetch_or_create_server(user.server)
             user = await guild.fetch_member(user.id)
-        except:
+        except Exception as e:
             raise commands.CommandError("An error occurred while checking permissions. Please try again later")
         else:
             for permission in permissions:
@@ -88,7 +88,7 @@ async def user_has_permissions(user: guilded.Member, **permissions):
 async def user_has_any_permissions(user: guilded.Member, **permissions):
     if isinstance(user, guilded.Member):
         try:
-            guild = await db.servers.fetch_or_create_server(ctx.server)
+            guild = await db.servers.fetch_or_create_server(user.server)
             user = await guild.fetch_member(user.id)
         except:
             raise commands.CommandError("An error occurred while checking permissions. Please try again later")

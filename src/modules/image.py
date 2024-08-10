@@ -1,7 +1,6 @@
 from quart import Quart, jsonify, request, send_file
 from werkzeug.exceptions import NotFound
 from guilded.ext import commands, tasks
-from quart_cors import route_cors
 from datetime import timedelta
 from base import BOT_VERSION
 
@@ -28,11 +27,11 @@ class Image(commands.Cog):
         return await db.proxy.cleanup_images()
     
     async def store_bytes(
-            self,
-            image_bytes: bytes,
-            expires: str="1d",
-            source_url: str="",
-        ):
+        self,
+        image_bytes: bytes,
+        expires: str="1d",
+        source_url: str="",
+    ):
         return await db.proxy.store_image(source_url, image_bytes, expires)
     
     async def proxy_url(
@@ -40,9 +39,13 @@ class Image(commands.Cog):
         url: str,
         expires: str="1d",
     ):
-        existing_image = await db.proxy.get_image(source=url)
-        if existing_image:
-            return f"{config.API_SITE}/resource/ext/{existing_image.id}"
+        try:
+            existing_image = await db.proxy.get_image(source=url)
+        except:
+            pass
+        else:
+            if existing_image:
+                return f"{config.API_SITE}/resource/ext/{existing_image.id}"
 
         download = requests.get(url,
             headers={
@@ -55,7 +58,6 @@ class Image(commands.Cog):
     
     def register_routes(self, app: Quart):
         @app.route("/resource/ext/<string:id>", methods=["GET"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=["*"])
         async def GetExtResource(id: str):
             try:
                 image = await db.proxy.get_image(id=id)

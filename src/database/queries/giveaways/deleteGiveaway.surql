@@ -1,0 +1,1 @@
+DELETE type::thing("giveaway", $id);

@@ -31,7 +31,7 @@ async def schedule_autorole(server_id: str, user_id: str, autorole: str):
 async def list_autoroles(server_id: str):
     cached = valkey.get(f"db:autoroles:{server_id}")
     if cached:
-        return [Autorole(config) for config in decoder.decode(cached)]
+        return [Autorole(config) for config in decoder.decode(cached.decode("utf-8"))]
     async with DBConnection() as db:
         try:
             response = await db.query(loadQuery("listRoleConfigs"), {
@@ -50,7 +50,7 @@ async def list_autoroles(server_id: str):
 async def get_autorole(id: str):
     cached = valkey.get(f"db:autorole:{id}")
     if cached:
-        return Autorole(decoder.decode(cached))
+        return Autorole(decoder.decode(cached.decode("utf-8")))
     async with DBConnection() as db:
         try:
             response = await db.query(loadQuery("getRoleConfig"), {

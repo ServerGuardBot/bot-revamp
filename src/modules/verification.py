@@ -1,5 +1,6 @@
-from core.checks import listener, is_module_enabled, module
+from core.checks import listener, is_module_enabled, module, developer_only
 from core.embeds import EMBED_STANDARD, EMBED_FILTERED
+from core.emotes import EMOTE_VERIFICATION_TICK
 from core.images import IMAGE_DEFAULT_AVATAR
 from werkzeug.exceptions import BadRequest
 from quart_rate_limiter import rate_limit
@@ -10,7 +11,7 @@ from guilded.ext import commands, tasks
 from Crypto.Util.Padding import unpad
 from modules.welcomer import Welcomer
 from modules.automod import Automod
-from quart_cors import route_cors
+from core.cors import apply_cors
 from Crypto.Cipher import AES
 
 import database as db
@@ -51,13 +52,57 @@ class Verification(commands.Cog):
     async def start_verification(self, channel: guilded.ChatChannel, author: guilded.Member):
         token = await self.generate_token(author)
         
+        link = f"{config.ORIGIN_SITE}/verify/{token}"
         em = EMBED_STANDARD(
             title="Verification",
             description=f"Here's your verification link, {author.mention}!"
         ) \
-            .add_field(name="Link", value=f"{config.ORIGIN_SITE}/verify/{token}")
+            .add_field(name="Link", value=guilded.utils.link(link=link, title=link))
         
         await channel.send(embed=em, private=True)
+    
+    async def send_verification_prompt(self, server: guilded.Server, member: guilded.Member):
+        try:
+            guild = await db.servers.fetch_or_create_server(event.server)
+        except:
+            return
+        else:
+            verification_channel = guild.settings.get("verification_channel")
+            unverified_role = guild.settings.get("unverified_role")
+            
+            if unverified_role:
+                try:
+                    await event.member.add_role(guilded.Object(unverified_role))
+                except:
+                    pass
+            
+            if verification_channel:
+                try:
+                    verification_channel = await self.bot.getch_channel(verification_channel)
+                except:
+                    pass
+                
+                links = [
+                    guilded.utils.link("https://www.guilded.gg/server-guard", "Support Server"),
+                    guilded.utils.link("https://serverguard.xyz", "Website"),
+                    guilded.utils.link("https://www.guilded.gg/b/2b2fa670-37c9-453c-8b35-5473fe932e6f", "Invite")
+                ]
+                
+                em = EMBED_STANDARD(
+                    title="Verification",
+                    description=f"Welcome {event.member.mention}! Please click the :white_check_mark: below to start verification!\n\n*Alternatively, you can use `/verify` if you are having issues."
+                )
+                em.add_field(
+                    name="Links",
+                    value=" • ".join(links)
+                    #"Support Server • Website • Invite"
+                )
+                
+                message: guilded.ChatMessage = await verification_channel.send(embed=em)
+                try:
+                    await message.add_reaction(guilded.Object(EMOTE_VERIFICATION_TICK))
+                except Exception as e:
+                    print(f"Failed to add reaction: {e}")
     
     def validate_turnstile(self, response: str, user_ip: str):
         turnstile_response = requests.post(
@@ -76,6 +121,14 @@ class Verification(commands.Cog):
         response = requests.get("https://www.dan.me.uk/torlist/?exit")
         if response.ok:
             self.tor_exit_nodes = response.text.splitlines()
+    
+    @commands.command()
+    @developer_only()
+    @module("verification")
+    async def invoke_verify_prompt(self, ctx: commands.Context, member: guilded.Member=None):
+        if member is None:
+            member = ctx.author
+        await self.send_verification_prompt(ctx.server, member)
     
     @commands.command()
     @module("verification")
@@ -114,6 +167,8 @@ class Verification(commands.Cog):
     @listener("verification")
     @commands.Cog.listener()
     async def on_message_reaction_add(self, event: guilded.MessageReactionAddEvent):
+        if event.member.bot: return
+        if event.message.author.id != self.bot.user.id: return
         try:
             guild = await db.servers.fetch_or_create_server(event.server)
         except:
@@ -121,12 +176,13 @@ class Verification(commands.Cog):
         else:
             verification_channel = guild.settings.get("verification_channel")
             if verification_channel and event.channel_id == verification_channel:
-                if event.emote.id == 90002171:
+                if event.emote.id == EMOTE_VERIFICATION_TICK:
                     await self.start_verification(event.channel, event.member)
     
     @listener("verification")
     @commands.Cog.listener()
     async def on_message(self, event: guilded.MessageEvent):
+        if event.message.author.bot: return
         try:
             guild = await db.servers.fetch_or_create_server(event.server)
         except:
@@ -143,79 +199,49 @@ class Verification(commands.Cog):
     @listener("verification")
     @commands.Cog.listener()
     async def on_member_join(self, event: guilded.MemberJoinEvent):
-            try:
-                guild = await db.servers.fetch_or_create_server(event.server)
-            except:
-                return
-            else:
-                verification_channel = guild.settings.get("verification_channel")
-                unverified_role = guild.settings.get("unverified_role")
-                
-                if unverified_role:
-                    try:
-                        await event.member.add_role(guilded.Object(unverified_role))
-                    except:
-                        pass
-                
-                if verification_channel:
-                    try:
-                        verification_channel = await self.bot.getch_channel(verification_channel)
-                    except:
-                        pass
-                    
-                    links = [
-                        guilded.utils.link("https://www.guilded.gg/server-guard", "Support Server"),
-                        guilded.utils.link("https://serverguard.xyz", "Website"),
-                        guilded.utils.link("https://www.guilded.gg/b/2b2fa670-37c9-453c-8b35-5473fe932e6f", "Invite")
-                    ]
-                    
-                    em = EMBED_STANDARD(
-                        title="Verification",
-                        description=f"Welcome {event.member.mention}! Please click the :white_check_mark: below to start verification!\n\n*Alternatively, you can use `/verify` if you are having issues."
-                    )
-                    em.add_field(
-                        name="Links",
-                        value=" • ".join(links)
-                        #"Support Server • Website • Invite"
-                    )
-                    
-                    message: guilded.ChatMessage = await verification_channel.send(embed=em)
-                    try:
-                        await message.add_reaction(guilded.Object(90002171))
-                    except Exception as e:
-                        print(f"Failed to add reaction: {e}")
+        if event.member.bot: return
+        await self.send_verification_prompt(event.server, event.member)
     
     def register_routes(self, app: Quart):
         @app.route("/verify/<string:id>", methods=["GET"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=["*"])
         async def GetVerification(id: str):
-            token = await self.get_token(id)
+            try:
+                token = await self.get_token(id)
+            except:
+                return jsonify({"error": "Invalid token"}), 404
+
             if token:
                 guild = await self.bot.getch_server(token.guild_id)
                 user = await self.bot.getch_user(token.user_id)
                 
-                return jsonify({
-                    "user": {
-                        "name": user.display_name,
-                        "avatar": user.display_avatar.url,
-                    },
-                    "guild": {
-                        "name": guild.name,
-                        "avatar": guild.icon and guild.icon.url or IMAGE_DEFAULT_AVATAR,
-                    }
-                }), 200
+                try:
+                    server = await db.servers.fetch_or_create_server(guild)
+                except:
+                    return jsonify({"error": "Invalid token"}), 404
+                else:
+                    return jsonify({
+                        "user": {
+                            "name": user.display_name,
+                            "avatar": user.display_avatar.url,
+                        },
+                        "guild": {
+                            "name": guild.name,
+                            "avatar": guild.icon and guild.icon.url or IMAGE_DEFAULT_AVATAR,
+                            "adminContact": server.settings.get("admin_contact")
+                        }
+                    }), 200
             else:
                 return jsonify({"error": "Invalid token"}), 404
         
         @app.route("/verify/<string:id>", methods=["POST"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["POST"], allow_origin=["*"])
         @rate_limit(3, timedelta(minutes=1))
+        @apply_cors(allow_methods=["POST"])
         async def StartVerification(id: str):
-            body = request.get_data(as_text=True)
+            body = await request.get_data(as_text=True)
             enc = base64.b64decode(body)
             cipher = AES.new(config.SITE_ENCRYPTION.encode('utf-8'), AES.MODE_ECB)
             try:
-                post_data = decoder.decode(unpad(cipher.decrypt(enc), 16).decode('utf-8'))
+                post_data = db.decoder.decode(unpad(cipher.decrypt(enc), 16).decode('utf-8'))
             except Exception as e:
                 raise BadRequest
             
@@ -231,7 +257,13 @@ class Verification(commands.Cog):
             
             hashed_ip = hashlib.sha256(user_ip.encode('utf-8')).hexdigest()
             
-            token = await self.get_token(id)
+            try:
+                token = await self.get_token(id)
+            except db.NotFound:
+                return jsonify({"error": "Invalid token"}), 400
+            except:
+                return jsonify({"error": "Something went wrong."}), 500
+
             if token:
                 try:
                     guild = await db.servers.fetch_server(token.guild_id)
@@ -250,7 +282,6 @@ class Verification(commands.Cog):
                         identifier = None
 
                     logs_channel = guild.settings.get("logs_verify")
-                    is_premium = guild.settings.get("premium")[0] == "1"
                     
                     verified_role = guild.settings.get("verified_role")
                     unverified_role = guild.settings.get("unverified_role")
@@ -358,9 +389,8 @@ class Verification(commands.Cog):
                         
                         return jsonify({"status": "rejected", "reason": translation_string}), 200
                     
-                    if resultExists(user_response):
-                        if user_response[0]["result"][0]["bypass_verification"]:
-                            return await accept()
+                    if user.bypass_verification:
+                        return await accept()
                     
                     if not verify_browseragent(request.user_agent.string):
                         return await reject("invalid_browser")
@@ -416,14 +446,20 @@ class Verification(commands.Cog):
                         print("Failed to get banned members: {} - {}".format(type(e).__name__, e))
                         return await reject("internal_error")
                     
-                    try:
-                        matching_identifiers = await ident
-                    except Exception as e:
-                        print("Failed to get matching identifiers: {} - {}".format(type(e).__name__, e))
-                        return await reject("internal_error")
-                    
-                    if resultExists(matching_response):
-                        return await reject("linked_account")
+                    if identifier:
+                        try:
+                            matching_identifiers = await db.users.find_matching_identifiers(
+                                banned_users,
+                                identifier.connections,
+                                hashed_ip,
+                                browser_id
+                            )
+                        except Exception as e:
+                            print("Failed to get matching identifiers: {} - {}".format(type(e).__name__, e))
+                            return await reject("internal_error")
+                        else:
+                            if len(matching_identifiers) > 0:
+                                return await reject("linked_account")
                     
                     return await accept()
 

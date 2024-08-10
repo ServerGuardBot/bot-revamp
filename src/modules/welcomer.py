@@ -1,5 +1,6 @@
-from core.checks import is_module_enabled
+from core.checks import is_module_enabled, developer_only, module
 from libs.formatter import SGFormatter
+from core.embeds import EMBED_STANDARD
 from guilded.ext import commands
 from modules.image import Image
 from datetime import datetime
@@ -12,8 +13,8 @@ class Welcomer(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
     
-    def pick_image(self, images, image_cycle, member):
-        image: Image = self.bot.get_cog("Image")
+    async def pick_image(self, images, image_cycle, member):
+        # image: Image = self.bot.get_cog("Image")
         if image_cycle == "Random":
             image_url = random.choice(images)
         elif image_cycle == "Daily":
@@ -33,13 +34,19 @@ class Welcomer(commands.Cog):
         
         # Have to proxy these because sometimes Guilded's image proxy
         # gets rejected by some websites.
-        proxied = image.proxy_url(image_url)
-        return proxied if proxied else image_url
+        # TODO: Reintroduce this proxy once the issue with storage has been fixed
+        # try:
+        #     proxied = await image.proxy_url(image_url)
+        # except:
+        #     # For some reason proxying can fail if the data is too large
+        #     # fallback case until that issue can be fixed
+        #     proxied = None
+        return image_url, image_url
     
-    async def welcome_member(self, member: guilded.Member):
-        if not is_module_enabled("welcomer"): return
+    async def welcome_member(self, member: guilded.Member, debug: bool=False):
+        if not await is_module_enabled("welcomer", member): return
         try:
-            guild = await db.servers.fetch_or_create_server(member.server)
+            guild = await db.servers.fetch_server(member.server)
         except Exception as e:
             print("Failed to get guild: {} - {}".format(type(e).__name__, e))
         else:
@@ -56,12 +63,18 @@ class Welcomer(commands.Cog):
                     sgf = SGFormatter(member.server)
                     message = sgf.format(template, mention=member.mention, server_name=member.server.name)
 
-                    image = self.pick_image(images, image_cycle, member)
+                    image, original_image = await self.pick_image(images, image_cycle, member)
 
-                    em = guilded.Embed(
+                    em = EMBED_STANDARD(
                         title="Welcome!",
                         description=message,
                     )
+                    if debug:
+                        em.add_field(
+                            name="Image URL",
+                            value=original_image,
+                            inline=False
+                        )
                     if image:
                         em.set_image(url=image)
                     try:
@@ -69,23 +82,23 @@ class Welcomer(commands.Cog):
                     except Exception as e:
                         print("Failed to send welcome message: {} - {}".format(type(e).__name__, e))
     
-    async def farewell_member(self, member: guilded.Member):
-        if not is_module_enabled("welcomer"): return
+    async def farewell_member(self, member: guilded.Member, debug: bool=False):
+        if not await is_module_enabled("welcomer", member): return
         try:
-            guild = await db.servers.fetch_or_create_server(member.server)
+            guild = await db.servers.fetch_server(member.server)
         except Exception as e:
             print("Failed to get guild: {} - {}".format(type(e).__name__, e))
         else:
-            if is_module_enabled("verification", member):
-                unverified_role = guild.settings.get("unverified_role")
-                verified_role = guild.settings.get("verified_role")
+            if await is_module_enabled("verification", member):
+                unverified_role = guild.settings.get("unverified_role", "0")
+                verified_role = guild.settings.get("verified_role", "0")
                 is_verified = False
                 roles = await member.fetch_role_ids()
                 if verified_role and verified_role in roles:
                     is_verified = True
                 if unverified_role and unverified_role in roles:
                     is_verified = False
-                if not is_verified:
+                if (not is_verified) and (unverified_role != "0" or verified_role != "0"):
                     return
 
             if guild.settings.get("send_goodbye", False):
@@ -101,19 +114,41 @@ class Welcomer(commands.Cog):
                     sgf = SGFormatter(member.server)
                     message = sgf.format(template, mention=member.mention)
 
-                    image = self.pick_image(images, image_cycle, member)
+                    image, original_image = await self.pick_image(images, image_cycle, member)
 
-                    em = guilded.Embed(
+                    em = EMBED_STANDARD(
                         title="Goodbye!",
                         description=message
                     )
+                    if debug:
+                        em.add_field(
+                            name="Image URL",
+                            value=original_image,
+                            inline=False
+                        )
                     if image:
                         em.set_image(url=image)
                     try:
                         await channel.send(embed=em)
                     except Exception as e:
-                            print("Failed to send goodbye message: {} - {}".format(type(e).__name__, e))
+                        print("Failed to send goodbye message: {} - {}".format(type(e).__name__, e))
 
+    @commands.command()
+    @module("welcomer")
+    @developer_only()
+    async def invoke_welcome(self, ctx: commands.Context, member: guilded.Member=None):
+        if member is None:
+            member = ctx.author
+        await self.welcome_member(member, True)
+    
+    @commands.command()
+    @module("welcomer")
+    @developer_only()
+    async def invoke_goodbye(self, ctx: commands.Context, member: guilded.Member=None):
+        if member is None:
+            member = ctx.author
+        await self.farewell_member(member, True)
+    
     @commands.Cog.listener()
     async def on_member_join(self, event: guilded.MemberJoinEvent):
         if is_module_enabled("verification", event): return

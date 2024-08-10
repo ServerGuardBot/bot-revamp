@@ -14,7 +14,8 @@ import database.users
 import database.servers
 import database.statuses
 import database.analytics
-import database.auth
+import database.giveaways
 import database.proxy
+import database.auth
 import database.data
 import database.rss

@@ -26,6 +26,7 @@ services:
       - GRAFANA_ROOT=http://grafana:3002
       - PROMETHEUS_ROOT=http://prometheus:9090
       - VALKEY_IP=valkey
+      - PYTHONUNBUFFERED=1
     restart: always
 
   surrealdb:
@@ -35,7 +36,7 @@ services:
       - "8000:8000"
     command:
       - start
-      - --log=trace
+      - --log=debug
       - --auth
       - --user=root
       - --pass=root

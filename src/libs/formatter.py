@@ -7,7 +7,7 @@ class FormatterValue:
     # FormatterValue class ensures all values passed to a template
     # are simple to use/more powerful
     def __init__(self, value):
-        self.__raw = value
+        self.raw = value
         
         if type(value) is str:
             value: str
@@ -21,7 +21,7 @@ class FormatterValue:
                 setattr(self, k, FormatterValue(v))
     
     def __str__(self):
-        return self.__raw
+        return self.raw
 
 class SGFormatter(Formatter):
     def __init__(

@@ -10,4 +10,4 @@ DEFINE FIELD etag ON feeddata TYPE option<string>;
 DEFINE FIELD last_updated ON feeddata TYPE datetime DEFAULT time::now();
 DEFINE FIELD next_update ON feeddata TYPE datetime DEFAULT time::now();
 
-DEFINE FIELD data ON feeddata FLEXIBLE TYPE object;
+DEFINE FIELD data ON feeddata TYPE string;

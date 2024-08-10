@@ -8,6 +8,7 @@ from mdit_plain.renderer import RendererPlain
 from humanfriendly import format_timespan
 from guilded.ext import commands, tasks
 from better_profanity import Profanity
+from core.images import IMAGE_BOT_LOGO
 from markdown_it import MarkdownIt
 from nudenet import NudeDetector
 from unidecode import unidecode
@@ -25,6 +26,7 @@ import mimetypes
 import requests
 import guilded
 import asyncio
+import urllib
 import config
 import uuid
 import csv
@@ -232,7 +234,10 @@ class Automod(commands.Cog):
         em.add_field(name="Author", value=user.mention, inline=True)
         if extraData.get("certainty"):
             from base import BOT_VERSION
-            em.set_footer(text=f"v{BOT_VERSION} {str.capitalize(config.DATABASE_DB)} • Certainty: {extraData['certainty']}%")
+            em.set_footer(
+                text=f"v{BOT_VERSION} {str.capitalize(config.DATABASE_DB)} • Certainty: {extraData['certainty']}%",
+                icon_url=IMAGE_BOT_LOGO
+            )
         if extraData.get("filtered"):
             em.add_field(name="Filtered Message", value=extraData["filtered"], inline=False)
         if extraData.get("threat"):
@@ -426,7 +431,16 @@ class Automod(commands.Cog):
                                     if path in lowered:
                                         stop = True
                                         break
-                                if "guilded" in domain and lowered == message.server.slug.lower(): continue # Don't filter invite links to their own server lol
+                                url = urllib.parse.urlparse(lowered)
+                                if (
+                                    url.path.startswith("/api") or \
+                                    url.path.startswith("/ws") or \
+                                    url.path.startswith("/docs")
+                                ): continue
+                                if (
+                                    url.hostname.endswith("guilded.gg") or \
+                                    url.hostname.endswith("guilded.com")
+                                ) and url.path.startswith(message.server.slug.lower()): continue # Don't filter invite links to their own server lol
                                 if stop: continue
                                 await message.delete()
                                 await self.notify_filter(message, "Invite Link")
@@ -621,7 +635,7 @@ class Automod(commands.Cog):
     async def refresh_filter(self, guild_id: str, profanities: list=None):
         if profanities is None:
             try:
-                guild = await db.servers.fetch_or_create_server(guild_id)
+                guild = await db.servers.fetch_or_create_server(self.bot.get_server(guild_id))
             except:
                 return
             else:

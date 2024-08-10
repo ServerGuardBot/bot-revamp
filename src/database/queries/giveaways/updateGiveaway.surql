@@ -1,0 +1,1 @@
+UPDATE type::thing("giveaway", $id) MERGE $payload;

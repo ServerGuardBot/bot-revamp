@@ -96,7 +96,10 @@ class UserPermissions:
         # This property exists in case there's other none-manage
         # permissions that can grant dash access.
         for permission in self.__permissions__:
-            if (permission.startswith("manage") or permission == "view_audit_logs") and getattr(self, permission, False):
+            if (permission.startswith("manage") or \
+                    permission == "view_audit_logs" or \
+                    permission == "host_giveaways") and \
+                    getattr(self, permission, False):
                 return True
         return False
     

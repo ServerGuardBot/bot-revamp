@@ -4,7 +4,7 @@ from core.setting_handlers import InvalidSetting
 from database.permissions import UserPermissions
 from modules.automod import LDNOOBW_LANGS
 from quart import Quart, jsonify, request
-from quart_cors import route_cors
+from core.cors import apply_cors
 from guilded.ext import commands
 from guilded.http import Route
 from datetime import datetime
@@ -36,6 +36,8 @@ class Dashboard(commands.Cog):
                         server_role = role_perms.get(str(role_id))
                         if server_role:
                             user_perms += UserPermissions.from_string(server_role)
+                if member.id == event.server.owner_id:
+                    user_perms = UserPermissions.all()
                 try:
                     user = await guild.fetch_or_create_member(member)
                     await user.set_perms(user_perms)
@@ -65,7 +67,7 @@ class Dashboard(commands.Cog):
             payload[key] = value
         
         try:
-            guild = await db.servers.fetch_or_create_server(guild_id)
+            guild = await db.servers.fetch_or_create_server(self.bot.get_server(guild_id))
             log = await guild.create_audit_log(payload)
         except Exception as e:
             print("Failed to report action: {} - {}".format(type(e).__name__, e))
@@ -118,7 +120,6 @@ class Dashboard(commands.Cog):
     
     def register_routes(self, app: Quart):
         @app.route("/modules", methods=["GET"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=["*"])
         async def Modules():
             return jsonify({
                 "modules": defaults.all_modules,
@@ -126,8 +127,8 @@ class Dashboard(commands.Cog):
             })
         
         @app.route("/servers", methods=["GET"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         @authenticated
+        @apply_cors(allow_credentials=True, allow_origin=[config.ORIGIN_SITE])
         async def GetServers():
             userId = request.authenticated_user
             bot_servers = self.bot.servers
@@ -159,12 +160,12 @@ class Dashboard(commands.Cog):
             return jsonify({"status": "ok", "servers": servers})
         
         @app.route("/servers/<string:server_id>")
-        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @apply_cors(allow_credentials=True, allow_origin=[config.ORIGIN_SITE])
         @authenticated
         @dashboard_access
         async def ServerOverview(server_id: str):
             try:
-                guild = await db.servers.fetch_or_create_server(server_id)
+                guild = await db.servers.fetch_or_create_server(self.bot.get_server(server_id))
             except:
                 return jsonify({"status": "error", "message": "Invalid server ID"}), 404
             else:
@@ -191,21 +192,20 @@ class Dashboard(commands.Cog):
                     if role.id in bot_roles and role.priority > highest_priority:
                         highest_priority = role.priority
                 for role in server_roles:
-                    if role.priority >= highest_priority - 1:
-                        continue
                     roles[role.id] = {
                         "name": role.name,
                         "color": [str(c) for c in role.colors],
                         "priority": role.priority,
                         "perms": role.permissions.values,
                         "base": role.base,
+                        "canManage": role.priority >= highest_priority - 1,
                     }
                 
                 channels = {}
                 
                 cached_channels = valkey.get(f"servers:{server_id}:channels")
                 if cached_channels:
-                    channels = db.decoder.decode(cached_channels)
+                    channels = db.decoder.decode(cached_channels.decode("utf-8"))
                 else:
                     channel_req = await self.bot.http.request(Route("GET", f"/teams/{server_id}/channels", override_base=Route.USER_BASE))
                     if channel_req:
@@ -221,102 +221,22 @@ class Dashboard(commands.Cog):
                     "roles": roles,
                     "channels": channels,
                     "members": members,
-
-                    # "prefix": server.get("prefix", config.DEFAULT_PREFIX),
-                    # "modules": server.get("modules", defaults.modules).copy(),
-                    # "timezone": server.get("timezone"),
-                    # "nickname": server.get("nickname"),
-                    # "language": server.get("language"),
-                    # "muted_role": server.get("muted_role"),
-                    
-                    # "untrusted_block_attachments": server.get("untrusted_block_attachments"),
-
-                    # "default_profanities": server.get("default_profanities"),
-                    # "default_profanities_restrictions": server.get("default_profanities_restrictions"),
-
-                    # "word_blacklist": server.get("word_blacklist"),
-                    # "word_blacklist_restrictions": server.get("word_blacklist_restrictions"),
-
-                    # "malicious_urls": server.get("malicious_urls"),
-                    # "malicious_urls_restrictions": server.get("malicious_urls_restrictions"),
-
-                    # "spam_filter": server.get("spam_filter"),
-                    # "spam_filter_restrictions": server.get("spam_filter_restrictions"),
-
-                    # "filter_invites": server.get("filter_invites"),
-                    # "filter_invites_restrictions": server.get("filter_invites_restrictions"),
-
-                    # "filter_api_keys": server.get("filter_api_keys"),
-                    # "filter_api_keys_restrictions": server.get("filter_api_keys_restrictions"),
-
-                    # "filter_toxicity": server.get("filter_toxicity"),
-                    # "filter_toxicity_restrictions": server.get("filter_toxicity_restrictions"),
-
-                    # "filter_hatespeech": server.get("filter_hatespeech"),
-                    # "filter_hatespeech_restrictions": server.get("filter_hatespeech_restrictions"),
-
-                    # "filter_nsfw": server.get("filter_nsfw"),
-                    # "filter_nsfw_restrictions": server.get("filter_nsfw_restrictions"),
-
-                    # "silence_commands": server.get("silence_commands"),
-                    # "log_commands": server.get("log_commands"),
-                    # "log_roles": server.get("log_roles"),
-                    # "logs_traffic": server.get("logs_traffic"),
-                    # "logs_message": server.get("logs_message"),
-                    # "logs_verification": server.get("logs_verification"),
-                    # "logs_action": server.get("logs_action"),
-                    # "logs_user": server.get("logs_user"),
-                    # "logs_management": server.get("logs_management"),
-                    # "logs_nsfw": server.get("logs_nsfw"),
-                    # "logs_automod": server.get("logs_automod"),
-
-                    # "admin_contact": server.get("admin_contact"),
-                    # "block_tor": server.get("block_tor"),
-                    # "check_ips": server.get("check_ips"),
-                    # "raid_guard": server.get("raid_guard"),
-                    # "verified_role": server.get("verified_role"),
-                    # "unverified_role": server.get("unverified_role"),
-                    # "verification_channel": server.get("verification_channel"),
-
-                    # "re_toxicity": server.get("re_toxicity"),
-                    # "re_hatespeech": server.get("re_hatespeech"),
-                    # "re_nsfw": server.get("re_nsfw"),
-                    # "re_blacklist": server.get("re_blacklist"),
-
-                    # "remove_old_level_roles": server.get("remove_old_level_roles"),
-                    # "announce_level_up": server.get("announce_level_up"),
-                    # "xp_roles": server.get("xp_roles"),
-
-                    # "send_welcome": server.get("send_welcome"),
-                    # "welcome_message": server.get("welcome_message"),
-                    # "welcome_channel": server.get("welcome_channel"),
-                    # "welcome_image": server.get("welcome_image"),
-                    # "welcome_image_cycle": server.get("welcome_image_cycle"),
-
-                    # "send_goodbye": server.get("send_goodbye"),
-                    # "goodbye_message": server.get("goodbye_message"),
-                    # "goodbye_channel": server.get("goodbye_channel"),
-                    # "goodbye_image": server.get("goodbye_image"),
-                    # "goodbye_image_cycle": server.get("goodbye_image_cycle"),
-
-                    # "giveaway_ping_role": server.get("giveaway_ping_role"),
-                    # "giveaway_channel": server.get("giveaway_channel"),
                 }
                 
-                for attr in dir(db.servers.server.ServerSettings):
-                    if not attr.startswith("_"):
-                        data[attr] = getattr(guild.settings, attr, None)
+                for item in guild.serialize_settings().items():
+                    key, value = item[0], item[1]
+                    data[key] = value
 
                 return jsonify({"status": "ok", "server": data})
         
         @app.route("/servers/<string:server_id>/limits")
-        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @apply_cors(allow_credentials=True, allow_origin=[config.ORIGIN_SITE])
         @authenticated
         @dashboard_access
         async def GetServerLimits(server_id: str):
             is_premium = False
             try:
-                guild = await db.servers.fetch_or_create_server(server_id)
+                guild = await db.servers.fetch_or_create_server(self.bot.get_server(server_id))
             except Exception as e:
                 print("Failed to get guild: {} - {}".format(type(e).__name__, e))
                 return jsonify({"status": "error", "message": "An unknown error occurred"}), 500
@@ -329,12 +249,12 @@ class Dashboard(commands.Cog):
                 }})
         
         @app.route("/servers/<string:server_id>/permissions")
-        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @apply_cors(allow_credentials=True, allow_origin=[config.ORIGIN_SITE])
         @authenticated
         @dashboard_access
         async def GetServerPermissions(server_id: str):
             try:
-                guild = await db.servers.fetch_or_create_server(server_id)
+                guild = await db.servers.fetch_or_create_server(self.bot.get_server(server_id))
             except:
                 return jsonify({"status": "error", "message": "Invalid server ID"}), 404
             else:
@@ -346,7 +266,7 @@ class Dashboard(commands.Cog):
             return jsonify({"status": "error", "message": "An unknown error occurred"}), 404
         
         @app.route("/servers/<string:server_id>/settings", methods=["PATCH"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["PATCH"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @apply_cors(allow_methods=["PATCH"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         @authenticated
         @dashboard_access
         async def UpdateServerSettings(server_id: str):
@@ -354,8 +274,9 @@ class Dashboard(commands.Cog):
             if len(post_data) == 0:
                 return jsonify({"status": "error", "message": "No data provided"}), 400
             try:
-                guild = await db.servers.fetch_or_create_server(server_id)
-                user = await guild.fetch_or_create_member(request.user_id)
+                server = self.bot.get_server(server_id)
+                guild = await db.servers.fetch_or_create_server(server)
+                user = await guild.fetch_or_create_member(await server.getch_member(request.authenticated_user))
             except:
                 return jsonify({"status": "error", "message": "Failed to get server or user"}), 404
             else:
@@ -401,8 +322,13 @@ class Dashboard(commands.Cog):
                     try:
                         await guild.update_settings(**changes)
                     except Exception as e:
+                        import traceback
                         print("Failed to update settings for server {} - {}: {}".format(server_id, type(e).__name__, e))
-                        return jsonify({"status": "error", "message": "Failed to update settings"}), 500
+                        return jsonify({
+                            "status": "error",
+                            "message": "Failed to update settings",
+                            "traceback": traceback.format_exc()
+                        }), 500
                     else:
                         for key in changes:
                             await self.report_action(
@@ -422,7 +348,7 @@ class Dashboard(commands.Cog):
                 return jsonify({"status": "ok", "failures": failures})
     
         @app.route("/servers/<string:server_id>/audit/info", methods=["GET"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @apply_cors(allow_credentials=True, allow_origin=[config.ORIGIN_SITE])
         @authenticated
         @has_permissions(view_audit_logs=True)
         async def GetAuditInfo(server_id: str):
@@ -433,17 +359,17 @@ class Dashboard(commands.Cog):
                 event = getattr(audit_log_events, name)
                 events[name] = event
 
-                try:
-                    guild = await db.servers.fetch_or_create_server(server_id)
-                    audit_log_users = await guild.get_audit_log_users()
-                except Exception as e:
-                    print("Failed to get audit log users for server {} - {}: {}".format(server_id, type(e).__name__, e))
-                    return jsonify({"status": "error", "message": "Failed to get audit log users"}), 500
-                else:
-                    return jsonify({"status": "ok", "users": audit_log_users, "events": events})
+            try:
+                guild = await db.servers.fetch_or_create_server(self.bot.get_server(server_id))
+                audit_log_users = await guild.get_audit_log_users()
+            except Exception as e:
+                print("Failed to get audit log users for server {} - {}: {}".format(server_id, type(e).__name__, e))
+                return jsonify({"status": "error", "message": "Failed to get audit log users"}), 500
+            else:
+                return jsonify({"status": "ok", "users": audit_log_users, "events": events})
     
         @app.route("/servers/<string:server_id>/audit", methods=["GET"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @apply_cors(allow_credentials=True, allow_origin=[config.ORIGIN_SITE])
         @authenticated
         @has_permissions(view_audit_logs=True)
         async def GetAuditLogs(server_id: str):
@@ -454,7 +380,7 @@ class Dashboard(commands.Cog):
             limit = max(20, min(100, request.args.get("limit", 50, type=int)))
             page = request.args.get("page", 1, type=int)
             try:
-                guild = await db.servers.fetch_or_create_server(server_id)
+                guild = await db.servers.fetch_or_create_server(self.bot.get_server(server_id))
                 logs, count = await guild.get_audit_logs(
                     start=range_start,
                     end=range_end,
@@ -466,9 +392,12 @@ class Dashboard(commands.Cog):
                 # TODO: Maybe an option to order by ascending or descending?
             except Exception as e:
                 print("Failed to get audit logs for server {} - {}: {}".format(server_id, type(e).__name__, e))
-                return jsonify({"status": "error", "message": "Failed to get audit logs"}), 400
+                return jsonify({
+                    "status": "error",
+                    "message": "Failed to get audit logs"
+                }), 400
             else:
-                if len(response[1]["result"]) == 0:
+                if count == 0:
                     return jsonify(
                         {
                             "status": "ok",
@@ -479,17 +408,18 @@ class Dashboard(commands.Cog):
                 parsedResult = []
                 for log in logs:
                     log: db.servers.server.AuditLog
+                    raw = dict(log.raw)
                     try:
                         if log.event_name == "update_setting":
-                            if log.extra_data["setting"] == "permissions":
-                                for role_id in log.extra_data["value"].keys():
-                                    log.extra_data["value"][role_id] = UserPermissions.from_string(log.extra_data["value"][role_id]).list
-                                if log.extra_data.get("prev_value"):
-                                    for role_id in log.extra_data["prev_value"].keys():
-                                        log.extra_data["prev_value"][role_id] = UserPermissions.from_string(log.extra_data["prev_value"][role_id]).list
+                            if raw["setting"] == "permissions":
+                                for role_id in raw["value"].keys():
+                                    raw["value"][role_id] = UserPermissions.from_string(raw["value"][role_id]).list
+                                if raw.get("prev_value"):
+                                    for role_id in raw["prev_value"].keys():
+                                        raw["prev_value"][role_id] = UserPermissions.from_string(raw["prev_value"][role_id]).list
                     except Exception as e:
                         print("{}: {}".format(type(e).__name__, e))
-                    parsedResult.append(log)
+                    parsedResult.append(raw)
                 return jsonify(
                     {
                         "status": "ok",

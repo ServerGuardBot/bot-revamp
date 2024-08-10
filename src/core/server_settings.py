@@ -50,16 +50,16 @@ silence_commands = bool_handler
 log_commands = bool_handler
 log_roles = bool_handler
 
-logs_nsfw = is_premium_server(channel_handler("text"))
-logs_verification = channel_handler("text")
-logs_management = channel_handler("text")
-logs_traffic = channel_handler("text")
-logs_message = channel_handler("text")
-logs_action = channel_handler("text")
-logs_user = channel_handler("text")
-logs_automod = channel_handler("text")
+logs_nsfw = is_premium_server(channel_handler("chat"))
+logs_verification = channel_handler("chat")
+logs_management = channel_handler("chat")
+logs_traffic = channel_handler("chat")
+logs_message = channel_handler("chat")
+logs_action = channel_handler("chat")
+logs_user = channel_handler("chat")
+logs_automod = channel_handler("chat")
 
-verification_channel = channel_handler("text")
+verification_channel = channel_handler("chat")
 admin_contact = contact_handler
 raid_guard = bool_handler
 block_tor = bool_handler
@@ -78,19 +78,19 @@ send_welcome = bool_handler
 welcome_message = string_handler(
     max_length=limits.welcomer_message_length,
 )
-welcome_channel = channel_handler("text")
-welcome_image = url_handler
+welcome_channel = channel_handler("chat")
+welcome_image = url_list_handler
 welcome_image_cycle = welcomer_cycle
 
 send_goodbye = bool_handler
 goodbye_message = string_handler(
     max_length=limits.welcomer_message_length,
 )
-goodbye_channel = channel_handler("text")
-goodbye_image = url_handler
+goodbye_channel = channel_handler("chat")
+goodbye_image = url_list_handler
 goodbye_image_cycle = welcomer_cycle
 
 rss_feeds = uses_custom_handler
 
 giveaway_ping_role = role_handler
-giveaway_channel = channel_handler("text")
+giveaway_channel = channel_handler("chat")

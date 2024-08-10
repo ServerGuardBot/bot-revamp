@@ -5,7 +5,7 @@ from guilded.embed import EmptyEmbed
 
 import config
 
-def EMBED_STANDARD(title: str, description: str, colour: Colour = Colour.gilded(), timestamp: datetime = EmptyEmbed, url: str = EmptyEmbed):
+def EMBED_STANDARD(title: str, description: str=EmptyEmbed, colour: Colour = Colour.gilded(), timestamp: datetime = EmptyEmbed, url: str = EmptyEmbed):
     from base import BOT_VERSION
     return Embed(
         title=title,

@@ -8,15 +8,7 @@ from typing import Union
 
 import guilded
 
-async def fetch_or_create_server(server_id: Union[str, guilded.Server]) -> Server:
-    from base import bot
-    if isinstance(server_id, guilded.Server):
-        guild = server_id
-    else:
-        guild = bot.get_server(server_id)
-    if guild is None:
-        raise NotInServer
-
+async def fetch_or_create_server(guild: Union[str, guilded.Server]) -> Server:
     try:
         server = await fetch_server(guild)
     except ServerNotFound:
@@ -28,7 +20,7 @@ async def fetch_or_create_server(server_id: Union[str, guilded.Server]) -> Serve
             guild.id,
             guild.name,
             guild.about,
-            guild.avatar.url if guild.avatar else IMAGE_DEFAULT_AVATAR,
+            (guild.avatar.url if guild.avatar.signed else (await guild.avatar.sign()).url) if guild.avatar else IMAGE_DEFAULT_AVATAR,
             guild.member_count,
         )
     return server

@@ -598,7 +598,7 @@ class Moderation(commands.Cog):
             try:
                 guild = await db.servers.fetch_or_create_server(ctx.server)
                 user = await guild.fetch_member(member.id)
-            except:
+            except Exception as e:
                 await ctx.reply(
                     embed=EMBED_DENIED(
                         title="Failure",
@@ -702,7 +702,7 @@ class Moderation(commands.Cog):
                     pass
                 elif status.type == "mute":
                     try:
-                        guild = await db.servers.fetch_or_create_server(status.guild_id)
+                        guild = await db.servers.fetch_or_create_server(self.bot.get_server(status.guild_id))
                     except:
                         pass
                     else:

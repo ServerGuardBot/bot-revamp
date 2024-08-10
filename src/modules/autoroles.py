@@ -2,12 +2,13 @@ from core.checks_api import dashboard_access, authenticated, has_permissions
 from quart import Quart, jsonify, request
 from guilded.ext import commands, tasks
 from database.autoroles import Autorole
-from quart_cors import route_cors
+from core.cors import apply_cors
 from core.checks import listener
 from typing import List
 
 import database as db
 import guilded
+import config
 
 class Autoroles(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -107,13 +108,13 @@ class Autoroles(commands.Cog):
     
     def register_routes(self, app: Quart):
         @app.route("/servers/<string:server_id>/autoroles")
-        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @apply_cors(allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         @authenticated
         @dashboard_access
         @has_permissions(manage_autoroles=True)
         async def GetAutoroles(server_id: str):
             try:
-                guild = await db.servers.fetch_or_create_server(server_id)
+                guild = await db.servers.fetch_or_create_server(self.bot.get_server(server_id))
             except:
                 return jsonify({"status": "error", "error": "Something went wrong while fetching server information."}), 500
             else:
@@ -136,13 +137,13 @@ class Autoroles(commands.Cog):
                     })
         
         @app.route("/servers/<string:server_id>/autoroles", methods=["POST"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["POST"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @apply_cors(allow_methods=["POST"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         @authenticated
         @dashboard_access
         @has_permissions(manage_autoroles=True)
         async def CreateAutorole(server_id: str):
             try:
-                guild = await db.servers.fetch_or_create_server(server_id)
+                guild = await db.servers.fetch_or_create_server(self.bot.get_server(server_id))
             except:
                 return jsonify({"status": "error", "error": "Something went wrong while fetching server information."}), 500
             else:
@@ -182,13 +183,13 @@ class Autoroles(commands.Cog):
                         }})
         
         @app.route("/servers/<string:server_id>/autoroles/<string:autorole_id>", methods=["PATCH"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["PATCH"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @apply_cors(allow_methods=["PATCH"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         @authenticated
         @dashboard_access
         @has_permissions(manage_autoroles=True)
         async def UpdateAutorole(server_id: str, autorole_id: str):
             try:
-                guild = await db.servers.fetch_or_create_server(server_id)
+                guild = await db.servers.fetch_or_create_server(self.bot.get_server(server_id))
             except:
                 return jsonify({"status": "error", "error": "Something went wrong while fetching server information."}), 500
             else:
@@ -229,13 +230,13 @@ class Autoroles(commands.Cog):
                             }})
         
         @app.route("/servers/<string:server_id>/autoroles/<string:autorole_id>", methods=["DELETE"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["DELETE"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @apply_cors(allow_methods=["DELETE"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         @authenticated
         @dashboard_access
         @has_permissions(manage_autoroles=True)
         async def DeleteAutorole(server_id: str, autorole_id: str):
             try:
-                guild = await db.servers.fetch_or_create_server(server_id)
+                guild = await db.servers.fetch_or_create_server(self.bot.get_server(server_id))
             except:
                 return jsonify({"status": "error", "error": "Something went wrong while fetching server information."}), 500
             else:

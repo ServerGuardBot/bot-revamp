@@ -29,6 +29,6 @@ class User(DatabaseModel):
             except SurrealException as e:
                 raise DatabaseError(str(e))
             else:
-                self.__raw['language'] = lang
+                self.raw['language'] = lang
                 self.language = lang
-                valkey.set(f"db:user{self.id}", encoder.encode(self.__raw), 86400)
+                valkey.set(f"db:user{self.id}", encoder.encode(self.raw), 86400)

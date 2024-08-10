@@ -103,7 +103,7 @@ def channel_handler(allowed_types: list=None):
         except:
             raise InvalidSetting(f"Channel with id {value} does not exist")
         else:
-            if allowed_types is not None and channel.type not in allowed_types:
+            if allowed_types is not None and channel.type.value not in allowed_types:
                 raise InvalidSetting(f"Channel's type ({channel.type}) is not permitted.")
             return value
         raise InvalidSetting(f"Channel with id {value} does not exist")
@@ -252,9 +252,16 @@ def contact_handler(server_id: str, server: Server, value: str, bot: guilded.Cli
     raise InvalidSetting(f"Invalid contact: {value}")
 
 def url_handler(server_id: str, server: Server, value: str, bot: guilded.Client):
+    if not isinstance(value, str):
+        raise InvalidSetting(f"Expected string, got something else instead")
     value = value.strip()
     if not re.match(URL_REGEX, value):
         raise InvalidSetting(f"Invalid URL: {value}")
+    return value
+
+def url_list_handler(server_id: str, server: Server, value: list, bot: guilded.Client):
+    for item in value:
+        url_handler(server_id, server, item, bot)
     return value
 
 def timezone_handler(server_id: str, server: Server, value: str, bot: guilded.Client):

@@ -4,4 +4,5 @@ CREATE guild_user SET
     perms = $perms,
     xp = $xp,
     is_banned = $banned,
-    can_access_dash = $access;
+    can_access_dash = $access,
+    roles = $roles;

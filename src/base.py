@@ -1,4 +1,4 @@
-BOT_VERSION = "1.0.0"
+BOT_VERSION = "2.0.0"
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -12,13 +12,14 @@ from prometheus_client import make_asgi_app
 from quart_rate_limiter import RateLimiter
 from quart import Quart, jsonify, request
 from python_loki_logger import LokiLogger
-from database.setup import setup_db
-from quart_cors import cors, route_cors
 from libs.translator import Translator
+from database.setup import setup_db
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
+from core.cors import _default_cors
 from libs.loki import LokiHandler
 from guilded.ext import commands
+from datetime import datetime
 from database import valkey
 from core import checks
 
@@ -92,6 +93,34 @@ async def on_ready():
                     print(f"Failed to fetch or create user {member.id} in database: {e}")
                 else:
                     print(f"Synced user {member.id} in database")
+                    try:
+                        identifier = await global_user.get_identifier()
+                    except db.NotFound:
+                        identifier = await db.users.create_identifier(global_user.id)
+                        connections = {}
+                        for social_type in guilded.SocialLinkType:
+                            try:
+                                social = await member.fetch_social_link(social_type)
+                            except:
+                                pass
+                            else:
+                                social: guilded.SocialLink
+                                connections[social_type.value] = {
+                                    "handle": social.handle,
+                                    "service_id": social.service_id
+                                }
+                        try:
+                            await identifier.update(
+                                connections=connections
+                            )
+                        except Exception as e:
+                            print(f"Failed to update identifier for user {member.id} in database: {e}")
+                        else:
+                            print(f"Synced identifier for user {member.id} in database")
+                    except Exception as e:
+                        print(f"Failed to get identifier for user {member.id} in database: {e}")
+                    else:
+                        print(f"Synced identifier for user {member.id} in database")
 
             for ban in await server.bans():
                 if ban.user.bot: continue
@@ -193,6 +222,9 @@ if config.GRAFANA_ROOT and config.GRAFANA_ROOT != "":
     )
     loki_handler = LokiHandler(loki_logger)
     logger.addHandler(loki_handler)
+    
+    hypercorn_logger = logging.getLogger("hypercorn.access")
+    hypercorn_logger.addHandler(loki_handler)
 
 ## RATE LIMITER STORE ##
 
@@ -242,7 +274,6 @@ async def run_bot_and_api():
     
     app = Quart(__name__)
     app.config["bot"] = bot
-    app = cors(app, allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
     
     app.asgi_app = PrometheusMiddleware(app.asgi_app, make_asgi_app())
     
@@ -256,11 +287,33 @@ async def run_bot_and_api():
     
     app_config = Config()
     app_config.bind = ["0.0.0.0:7777"]
+    
+    if config.GRAFANA_ROOT and config.GRAFANA_ROOT != "":
+        app_config.accesslog = hypercorn_logger
+        app_config.errorlog = hypercorn_logger
 
     if os.path.exists(config.SSL_CERTIFICATE) and os.path.exists(config.SSL_KEY):
         context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         context.load_cert_chain(config.SSL_CERTIFICATE, config.SSL_KEY)
         app_config.ssl = context
+    
+    @app.after_request
+    async def apply_cors(response):
+        cors = getattr(request, "_cors", _default_cors)
+        if cors.get("allow_methods"):
+            if "OPTIONS" not in cors["allow_methods"]:
+                cors["allow_methods"].append("OPTIONS")
+        if len(cors.get("allow_origin", _default_cors["allow_origin"])) > 0:
+            response.headers["Access-Control-Allow-Origin"] = ",".join(cors.get("allow_origin", _default_cors["allow_origin"]))
+        if len(cors.get("allow_headers", _default_cors["allow_headers"])) > 0:
+            response.headers["Access-Control-Allow-Headers"] = ",".join(cors.get("allow_headers", _default_cors["allow_headers"]))
+        if len(cors.get("allow_methods", _default_cors["allow_methods"])) > 0:
+            response.headers["Access-Control-Allow-Methods"] = ",".join(cors.get("allow_methods", _default_cors["allow_methods"]))
+        response.headers["Access-Control-Allow-Credentials"] = str(cors.get("allow_credentials", _default_cors["allow_credentials"])).lower()
+        if len(cors.get("expose_headers", _default_cors["expose_headers"])) > 0:
+            response.headers["Access-Control-Expose-Headers"] = ",".join(cors.get("expose_headers", _default_cors["expose_headers"]))
+        response.headers["Access-Control-Max-Age"] = str(cors.get("max_age", _default_cors["max_age"]))
+        return response
     
     bot_task = bot.start(config.TOKEN)
     api_task = serve(app, app_config)

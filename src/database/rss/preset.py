@@ -35,23 +35,23 @@ class FeedPreset(DatabaseModel):
             else:
                 if url != None:
                     self.url = url
-                    self.__raw['url'] = url
+                    self.raw['url'] = url
                 if name != None:
                     self.name = name
-                    self.__raw['name'] = name
+                    self.raw['name'] = name
                 if description != None:
                     self.description = description
-                    self.__raw['description'] = description
+                    self.raw['description'] = description
                 if extra_fields != None:
                     self.extra_fields = extra_fields
-                    self.__raw['extra_fields'] = extra_fields
+                    self.raw['extra_fields'] = extra_fields
                 cached = valkey.get(f"db:feed_presets")
                 if cached:
                     cached = decoder.decode(cached)
                     for item in cached:
                         if item["id"] == self.id:
                             cached.remove(item)
-                            cached.append(self.__raw)
+                            cached.append(self.raw)
                             break
                     valkey.set("db:feed_presets", encoder.encode(cached), 86400)
                 return self

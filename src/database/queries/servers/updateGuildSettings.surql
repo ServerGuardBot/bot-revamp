@@ -1,3 +1,4 @@
+BEGIN TRANSACTION;
 FOR $field IN object::keys($settings) {
     //UPDATE type::thing("guild", $id) SET type::field($field) = $settings[$field];
     UPDATE type::thing("guild", $id) PATCH [
@@ -8,3 +9,4 @@ FOR $field IN object::keys($settings) {
         }
     ];
 }
+COMMIT TRANSACTION;

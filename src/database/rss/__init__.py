@@ -1,4 +1,4 @@
-from database import DBConnection, loadQuery, resultExists, valkey, encoder, decoder
+from database import DBConnection, loadQuery, resultExists, allOk, valkey, encoder, decoder
 from database.exceptions import DatabaseError, NotFound
 from surrealdb.ws import SurrealException
 from datetime import datetime
@@ -14,10 +14,16 @@ async def create_feed_data(
     name: str,
     description: str,
     etag: str,
-    last_updated: str,
-    next_update: str,
-    data: dict
+    last_updated: datetime=datetime.now(),
+    next_update: datetime=datetime.now(),
+    data: dict=None
 ):
+    if last_updated is None:
+        last_updated = datetime.now()
+    if next_update is None:
+        next_update = datetime.now()
+    if isinstance(data, (dict, list)):
+        data = encoder.encode(data)
     async with DBConnection() as db:
         try:
             result = await db.query(
@@ -27,21 +33,47 @@ async def create_feed_data(
                     "name": name,
                     "description": description,
                     "etag": etag,
-                    "last_updated": last_updated,
-                    "next_update": next_update,
+                    "last_updated": int(last_updated.timestamp()),
+                    "next_update": int(next_update.timestamp()),
                     "data": data
                 }
             )
         except SurrealException as e:
-            raise DatabaseError(str(e))
+            import traceback
+            raise DatabaseError(f"{str(e)} - {traceback.format_exc()}")
         else:
             if resultExists(result):
                 item = FeedData(result[0]["result"][0])
-                valkey.set(f"db:feed_data:id:{item.id}", encoder.encode(item.__raw), 86400)
-                valkey.set(f"db:feed_data:url:{item.url}", encoder.encode(item.__raw), 86400)
+                valkey.set(f"db:feed_data:id:{item.id}", encoder.encode(item.raw), 86400)
+                valkey.set(f"db:feed_data:url:{item.url}", encoder.encode(item.raw), 86400)
                 return item
             else:
-                raise DatabaseError("Failed to create feed data.")
+                raise DatabaseError(f"Failed to create feed data: {result[0]['result']}")
+
+async def list_feed_datas(
+    ids: list=[],
+    urls: list=[],
+):
+    if ids is None and urls is None:
+        raise ValueError("Must specify either ids or urls.")
+    key = str(hash(tuple(ids) + tuple(urls)))
+    cached = valkey.get(f"db:feed_datas:{key}")
+    if cached:
+        return [FeedData(config) for config in decoder.decode(cached.decode("utf-8"))]
+    async with DBConnection() as db:
+        try:
+            response = await db.query(loadQuery("listFeedDatas"), {
+                "ids": ids,
+                "urls": urls
+            })
+        except SurrealException as e:
+            raise DatabaseError(str(e))
+        else:
+            if allOk(response):
+                valkey.set(f"db:feed_datas:{key}", encoder.encode(response[0]["result"]), 86400)
+                return [FeedData(config) for config in response[0]["result"]]
+            else:
+                raise DatabaseError("Failed to list feed datas.")
 
 async def fetch_feed_data(
     id: str=None,
@@ -52,11 +84,11 @@ async def fetch_feed_data(
     if id is not None:
         cached = valkey.get(f"db:feed_data:id:{id}")
         if cached:
-            return FeedData(decoder.decode(cached))
+            return FeedData(decoder.decode(cached.decode("utf-8")))
     else:
         cached = valkey.get(f"db:feed_data:url:{url}")
         if cached:
-            return FeedData(decoder.decode(cached))
+            return FeedData(decoder.decode(cached.decode("utf-8")))
     async with DBConnection() as db:
         try:
             response = await db.query(loadQuery("getFeedData"), {
@@ -78,7 +110,7 @@ async def fetch_feed_data(
 async def list_rss_feeds(server_id: str) -> List[RSSFeed]:
     cached = valkey.get(f"db:rss_feeds:{server_id}")
     if cached:
-        return [RSSFeed(config) for config in decoder.decode(cached)]
+        return [RSSFeed(config) for config in decoder.decode(cached.decode("utf-8"))]
     async with DBConnection() as db:
         try:
             response = await db.query(loadQuery("listChannelConfigs"), {
@@ -88,9 +120,11 @@ async def list_rss_feeds(server_id: str) -> List[RSSFeed]:
         except SurrealException as e:
             raise DatabaseError(str(e))
         else:
-            if resultExists(response):
+            if allOk(response):
                 valkey.set(f"db:rss_feeds:{server_id}", encoder.encode(response[0]["result"]), 700)
                 return [RSSFeed(config) for config in response[0]["result"]]
+            else:
+                raise DatabaseError("Failed to list feeds.")
 
 async def create_rss_feed(
     server_id: str,
@@ -98,18 +132,22 @@ async def create_rss_feed(
     webhook: str="",
     channel: str="",
     ping_role: str="0",
-    extra_fields: dict={}
+    extra_fields: dict={},
+    filters: List[str]=[]
 ):
     async with DBConnection() as db:
         try:
             response = await db.query(loadQuery("createChannelConfig"), {
-                "guild": server_id,
-                "type": ChannelConfigType.RSS.value,
-                "preset": preset,
-                "webhook": webhook,
-                "channel": channel,
-                "ping_role": ping_role,
-                "extra_fields": extra_fields
+                "payload": {
+                    "guild_id": server_id,
+                    "channel_id": channel,
+                    "type": ChannelConfigType.RSS.value,
+                    "preset": preset,
+                    "webhook": webhook,
+                    "ping_role": ping_role,
+                    "extra_fields": extra_fields,
+                    "filters": filters
+                }
             })
         except SurrealException as e:
             raise DatabaseError(str(e))
@@ -118,12 +156,12 @@ async def create_rss_feed(
                 valkey.set(f"db:rss_feeds:{server_id}", encoder.encode(response[0]["result"]), 700)
                 return RSSFeed(response[0]["result"][0])
             else:
-                raise DatabaseError("Failed to create feed.")
+                raise DatabaseError(f"Failed to create feed: {response[0]['result']}")
 
 async def fetch_rss_feed(id: str):
     cached = valkey.get(f"db:rss_feeds:{id}")
     if cached:
-        return RSSFeed(decoder.decode(cached))
+        return RSSFeed(decoder.decode(cached.decode("utf-8")))
     async with DBConnection() as db:
         try:
             response = await db.query(loadQuery("getChannelConfig"), {
@@ -134,12 +172,12 @@ async def fetch_rss_feed(id: str):
             raise DatabaseError(str(e))
         else:
             if resultExists(response):
-                valkey.set(f"db:rss_feeds:{id}", encoder.encode(response[0]["result"]), 700)
+                valkey.set(f"db:rss_feeds:{id}", encoder.encode(response[0]["result"][0]), 700)
                 return RSSFeed(response[0]["result"][0])
             else:
                 raise NotFound("Feed not found.")
 
-async def get_scheduled_feeds() -> List[RSSFeed]:
+async def get_scheduled_feeds() -> List[FeedData]:
     async with DBConnection() as db:
         try:
             response = await db.query(loadQuery("getScheduledFeeds"))
@@ -149,20 +187,16 @@ async def get_scheduled_feeds() -> List[RSSFeed]:
             if resultExists(response):
                 return [FeedData(raw) for raw in response[0]["result"]]
             else:
+                print(f"No scheduled feeds found: {response[0]['result']}")
                 return []
 
 async def get_updatable_feeds(
-    urls: List[str],
-    presets: List[str],
-    last_updated: datetime
+    guilds: List[str],
 ) -> List[RSSFeed]:
-    # TODO: Maybe limit this to only guilds this instance is running in?
     async with DBConnection() as db:
         try:
             response = await db.query(loadQuery("getUpdatableFeeds"), {
-                "urls": urls,
-                "presets": presets,
-                "updated": last_updated
+                "guilds": guilds
             })
         except SurrealException as e:
             raise DatabaseError(str(e))
@@ -170,12 +204,13 @@ async def get_updatable_feeds(
             if resultExists(response):
                 return [RSSFeed(raw) for raw in response[0]["result"]]
             else:
+                print(f"No updatable feeds found: {response[0]['result']}")
                 return []
 
 async def get_feed_presets() -> List[FeedPreset]:
     cached = valkey.get("db:feed_presets")
     if cached:
-        return [FeedPreset(config) for config in decoder.decode(cached)]
+        return [FeedPreset(config) for config in decoder.decode(cached.decode("utf-8"))]
     async with DBConnection() as db:
         try:
             response = await db.query(loadQuery("listFeedPresets"))
@@ -186,7 +221,7 @@ async def get_feed_presets() -> List[FeedPreset]:
                 valkey.set("db:feed_presets", encoder.encode(response[0]["result"]), 86400)
                 presets = [FeedPreset(raw) for raw in response[0]["result"]]
                 for preset in presets:
-                    valkey.set(f"db:feed_presets:{preset.id}", encoder.encode(preset.__raw), 86400)
+                    valkey.set(f"db:feed_presets:{preset.id}", encoder.encode(preset.raw), 86400)
                 return presets
             else:
                 return []
@@ -194,7 +229,7 @@ async def get_feed_presets() -> List[FeedPreset]:
 async def fetch_feed_preset(id: str) -> FeedPreset:
     cached = valkey.get(f"db:feed_presets:{id}")
     if cached:
-        return FeedPreset(decoder.decode(cached))
+        return FeedPreset(decoder.decode(cached.decode("utf-8")))
     async with DBConnection() as db:
         try:
             response = await db.query(loadQuery("getFeedPreset"), {
@@ -205,7 +240,7 @@ async def fetch_feed_preset(id: str) -> FeedPreset:
         else:
             if resultExists(response):
                 preset = FeedPreset(response[0]["result"][0])
-                valkey.set(f"db:feed_presets:{id}", encoder.encode(preset.__raw), 86400)
+                valkey.set(f"db:feed_presets:{id}", encoder.encode(preset.raw), 86400)
                 return preset
             else:
                 raise NotFound("Feed preset not found.")
@@ -234,7 +269,7 @@ async def create_feed_preset(
                     cached.append(response[0]["result"][0])
                     valkey.set("db:feed_presets", encoder.encode(cached), 86400)
                 preset = FeedPreset(response[0]["result"][0])
-                valkey.set(f"db:feed_presets:{preset.id}", encoder.encode(preset.__raw), 86400)
+                valkey.set(f"db:feed_presets:{preset.id}", encoder.encode(preset.raw), 86400)
                 return preset
             else:
                 raise DatabaseError("Failed to create feed preset.")

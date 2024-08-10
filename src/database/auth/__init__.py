@@ -51,9 +51,16 @@ async def create_login_token(
         except SurrealException as e:
             raise DatabaseError(str(e))
         else:
-            token = LoginToken(response[0]["result"][0])
-            valkey.set(f"db:user_token:{token.id}", encoder.encode(token.__raw), 60)
-            return token
+            if resultExists(response):
+                token = LoginToken(response[0]["result"][0])
+                valkey.set(
+                    f"db:user_token:{token.id}",
+                    encoder.encode(token.raw),
+                    60
+                )
+                return token
+            else:
+                raise DatabaseError("No login token was created")
 
 async def create_verify_token(
     user_id: str,
@@ -62,15 +69,18 @@ async def create_verify_token(
     async with DBConnection() as db:
         try:
             response = await db.query(loadQuery("createVerifyToken"), {
-                "user_id": user_id,
-                "guild_id": guild_id
+                "user": user_id,
+                "guild": guild_id
             })
         except SurrealException as e:
             raise DatabaseError(str(e))
         else:
-            token = VerifyToken(response[0]["result"][0])
-            valkey.set(f"db:user_token:{token.id}", encoder.encode(token.__raw), 60)
-            return token
+            if resultExists(response):
+                token = VerifyToken(response[0]["result"][0])
+                valkey.set(f"db:user_token:{token.id}", encoder.encode(token.raw), 60)
+                return token
+            else:
+                raise DatabaseError("No verify token was created")
 
 async def blacklist_refresh_token(id: str, expires: int):
     async with DBConnection() as db:

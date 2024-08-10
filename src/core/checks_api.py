@@ -32,6 +32,18 @@ def authenticated(f):
             return jsonify({'error': 'Unauthorized'}), 401
         
         request.authenticated_user = sessionToken.user_id
+
+        request.is_developer = False
+        support_server = await db.servers.fetch_server(config.SUPPORT_SERVER_ID)
+        try:
+            member = await support_server.fetch_member(request.authenticated_user)
+        except:
+            pass
+        else:
+            roles = member.roles
+            if int(config.DEVELOPER_ROLE_ID) in roles or config.DEVELOPER_ROLE_ID in roles:
+                request.is_developer = True
+
         return await f(*args, **kwargs)
 
     return decorated
@@ -86,15 +98,9 @@ def developer_only(f):
         if not authorized_user:
             raise RuntimeError("The authenticated check must be placed before the developer_only decorator! (Or you tried using this on a route that does not enforce auth)")
 
-        support_server = await db.servers.fetch_or_create_server(config.SUPPORT_SERVER_ID)
-        try:
-            member = await support_server.fetch_member(authorized_user)
-        except:
-            return jsonify({'error': 'Forbidden'}), 403
-        else:
-            roles = member.roles
-            if int(config.DEVELOPER_ROLE_ID) in roles:
-                return await f(*args, **kwargs)
+        if request.is_developer:
+            return await f(*args, **kwargs)
+
         return jsonify({'error': 'Forbidden'}), 403
     return decorated
 
@@ -110,10 +116,15 @@ def dashboard_access(f):
             raise RuntimeError("The dashboard_access decorator requires a server_id parameter in the url!")
 
         try:
-            guild = await db.servers.fetch_or_create_server(target_server)
+            guild = await db.servers.fetch_server(target_server)
             user = await guild.fetch_member(authorized_user)
-        except:
-            return jsonify({'error': 'Forbidden'}), 403
+        except Exception as e:
+            import traceback
+            return jsonify({
+                'error': 'Forbidden',
+                'stacktrace': traceback.format_exc(),
+                'message': str(e)
+            }), 403
         else:
             if user.can_access_dash:
                 return await f(*args, **kwargs)
@@ -133,7 +144,7 @@ def has_permissions(**permissions):
                 raise RuntimeError("The has_permissions decorator requires a server_id parameter in the url!")
             
             try:
-                guild = await db.servers.fetch_or_create_server(target_server)
+                guild = await db.servers.fetch_server(target_server)
                 user = await guild.fetch_member(authorized_user)
             except:
                 return jsonify({'error': 'Forbidden'}), 403
@@ -142,5 +153,30 @@ def has_permissions(**permissions):
                     if not getattr(user.perms, permission):
                         return jsonify({'error': 'Forbidden'}), 403
                 return await f(*args, **kwargs)
+        return decorated
+    return wrap_func
+
+def has_any_permissions(**permissions):
+    def wrap_func(f):
+        @wraps(f)
+        async def decorated(*args, **kwargs):
+            authorized_user = request.authenticated_user
+            target_server = kwargs.get('server_id')
+
+            if not authorized_user:
+                raise RuntimeError("The authenticated check must be placed before the has_permissions decorator! (Or you tried using this on a route that does not enforce auth)")
+            if not target_server:
+                raise RuntimeError("The has_permissions decorator requires a server_id parameter in the url!")
+            
+            try:
+                guild = await db.servers.fetch_server(target_server)
+                user = await guild.fetch_member(authorized_user)
+            except:
+                return jsonify({'error': 'Forbidden'}), 403
+            else:
+                for permission in permissions:
+                    if getattr(user.perms, permission):
+                        return await f(*args, **kwargs)
+                return jsonify({'error': 'Forbidden'}), 403
         return decorated
     return wrap_func

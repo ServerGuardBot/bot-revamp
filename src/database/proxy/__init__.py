@@ -16,7 +16,7 @@ async def store_image(
     buffer.seek(0)
     async with DBConnection() as db:
         try:
-            existing_image = await get_image(self, source=source)
+            existing_image = await get_image(source=source)
         except NotFound:
             try:
                 response = await db.query(loadQuery("storeImage"), {

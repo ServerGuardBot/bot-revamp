@@ -8,6 +8,7 @@ DEFINE FIELD message_id ON giveaway TYPE string;
 
 DEFINE FIELD ended ON giveaway TYPE bool DEFAULT false;
 DEFINE FIELD ends_at ON giveaway TYPE datetime;
+DEFINE FIELD ended_by ON giveaway TYPE string DEFAULT "";
 
 DEFINE FIELD prize ON giveaway TYPE string;
 DEFINE FIELD hosted_by ON giveaway TYPE string;

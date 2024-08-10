@@ -3,6 +3,6 @@ CREATE feeddata SET
     name = $name,
     description = $description,
     etag = $etag,
-    last_updated = $last_updated,
-    next_update = $next_update
+    last_updated = time::from::unix($last_updated),
+    next_update = time::from::unix($next_update),
     data = $data;

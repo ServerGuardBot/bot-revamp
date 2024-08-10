@@ -6,7 +6,7 @@ from core.emotes import EMOTE_VERIFICATION_TICK
 from core.images import IMAGE_DEFAULT_AVATAR
 from quart import Quart, jsonify, request
 from datetime import datetime, timedelta
-from quart_cors import route_cors
+from core.cors import apply_cors
 from guilded.ext import commands
 from guilded.http import Route
 from database import valkey
@@ -65,8 +65,6 @@ class LoginToken:
 class Auth(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-
-        self.user_tokens = {}
     
     @commands.Cog.listener()
     async def on_message(self, event: guilded.MessageEvent):
@@ -95,7 +93,7 @@ class Auth(commands.Cog):
 
                 login_message = await message.reply(embed=EMBED_STANDARD(
                     title="Verify Login",
-                    description=f"Hey {message.author.mention}! Are you trying to log in from **{token.get('location', 'Unknown')}** on **{token.get('browser', 'Unknown Browser')} {token.get('platform', 'Unidentified Platform')}?** If so, please click the :white_check_mark: below!"
+                    description=f"Hey {message.author.mention}! Are you trying to log in from **{token.location}** on **{token.browser} {token.platform}?** If so, please click the :white_check_mark: below!"
                 ), delete_after=60, private=True)
 
                 payload = {
@@ -109,36 +107,35 @@ class Auth(commands.Cog):
     @commands.Cog.listener()
     async def on_message_reaction_add(self, event: guilded.MessageReactionAddEvent):
         if event.message.channel_id != config.LOGIN_CHANNEL_ID: return
-        if event.message_id in self.user_tokens:
-            data = valkey.get(f"login:{event.message_id}")
-            if data:
-                data = db.decoder.decode(data)
-            else:
+        data = valkey.get(f"login:{event.message_id}")
+        if data:
+            data = db.decoder.decode(data.decode("utf-8"))
+        else:
+            return
+        if event.user_id != data["user"]: return
+        try:
+            token = await db.auth.get_token(data["token"])
+        except:
+            return
+        else:
+            if token.type != "login":
                 return
-            if event.user_id != data["user"]: return
             try:
-                token = await db.auth.get_token(data["token"])
+                await token.update(event.user_id)
             except:
-                return
+                await event.message.channel.send(embed=EMBED_DENIED(
+                    title="Failure",
+                    description=f"<@{event.user_id}>, There was an error logging you in. Please try again."
+                ), delete_after=10, private=True)
             else:
-                if token["type"] != "login":
-                    return
-                try:
-                    await token.update(event.user_id)
-                except:
-                    await event.message.channel.send(embed=EMBED_DENIED(
-                        title="Failure",
-                        description=f"<@{event.user_id}>, There was an error logging you in. Please try again."
-                    ), delete_after=10, private=True)
-                else:
-                    await event.message.channel.send(embed=EMBED_SUCCESS(
-                        title="Success",
-                        description=f"<@{event.user_id}>, You should now be logged in on your browser. If you closed the login page before this then you will have to login again."
-                    ), delete_after=10, private=True)
+                await event.message.channel.send(embed=EMBED_SUCCESS(
+                    title="Success",
+                    description=f"<@{event.user_id}>, You should now be logged in on your browser. If you closed the login page before this then you will have to login again."
+                ), delete_after=10, private=True)
     
     def register_routes(self, app: Quart):
         @app.route("/login/<string:lock>/<string:token>", methods=["GET"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @apply_cors(allow_methods=["GET"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         @unauthenticated
         async def GetLoginState(lock: str, token: str):
                 try:
@@ -171,7 +168,7 @@ class Auth(commands.Cog):
                         })
         
         @app.route("/login", methods=["POST"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["POST"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @apply_cors(allow_methods=["POST"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         @unauthenticated
         async def CreateLoginToken():
             lock = hashlib.sha256(os.urandom(32)).hexdigest()
@@ -183,11 +180,14 @@ class Auth(commands.Cog):
                     country_name = pycountry.countries.get(alpha_2=country_code).name
             else:
                 country_name = "Unknown"
-            ua = user_agents.parse(request.headers.get("User-Agent"))
+            ua = user_agents.parse(request.headers.get("User-Agent", ""))
             try:
-                token = await db.auth.create_login_token(country_name, ua.browser, ua.os.family, lock)
-            except:
-                return jsonify({"status": "error", "message": "Failed to create login token"}), 500
+                token = await db.auth.create_login_token(country_name, ua.browser.family or "Unknown", ua.os.family or "Unknown", lock)
+            except Exception as e:
+                return jsonify({
+                    "status": "error",
+                    "message": "Failed to create login token"
+                }), 500
             else:
                 return jsonify({
                     "status": "ok",
@@ -196,7 +196,7 @@ class Auth(commands.Cog):
                 })
         
         @app.route("/login", methods=["DELETE"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["DELETE"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @apply_cors(allow_methods=["DELETE"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         @unauthenticated
         async def CancelLoginToken():
             post_data: dict = await request.get_json()
@@ -220,7 +220,7 @@ class Auth(commands.Cog):
                 return jsonify({"status": "ok"})
         
         @app.route("/logout", methods=["POST"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["POST"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @apply_cors(allow_methods=["POST"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         async def Logout():
             cookies = request.cookies
             sessionCookie = cookies.get("session")
@@ -257,7 +257,7 @@ class Auth(commands.Cog):
             return jsonify({"status": "error", "message": "Not authorized"}), 401
         
         @app.route("/refresh", methods=["POST"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["POST"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @apply_cors(allow_methods=["POST"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         async def Refresh():
             cookies = request.cookies
             refreshCookie = cookies.get("refresh")
@@ -293,7 +293,7 @@ class Auth(commands.Cog):
             return jsonify({"status": "error", "message": "Not authorized"}), 401
         
         @app.route("/session", methods=["GET"])
-        @route_cors(allow_headers=["content-type"], allow_methods=["GET"], allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
+        @apply_cors(allow_origin=[config.ORIGIN_SITE], allow_credentials=True)
         @authenticated
         async def GetSession():
             userId = request.authenticated_user
@@ -304,17 +304,25 @@ class Auth(commands.Cog):
                 return jsonify({"status": "error", "message": "Could not retrieve user"}), 500
             else:
                 servers = []
+                debug = {}
                 for server in bot_servers:
+                    debug[server.id] = {}
+                    debug[server.id]["members"] = server.member_count
                     if server.member_count == 0:
                         await server.fill_members()
+                        debug[server.id]["filled_members"] = True
+                    else:
+                        debug[server.id]["filled_members"] = False
 
-                    guildUser = None
+                    server_member = None
                     try:
-                        guildUser = server.get_member(userId)
+                        server_member = server.get_member(userId)
                     except:
-                        pass
+                        debug[server.id]["found_user"] = False
+                    else:
+                        debug[server.id]["found_user"] = True
 
-                    if not guildUser:
+                    if not server_member:
                         continue
 
                     isPremium = False
@@ -322,14 +330,19 @@ class Auth(commands.Cog):
                         guild = await db.servers.fetch_or_create_server(server)
                     except Exception as e:
                         print("{}: {}".format(type(e).__name__, e))
+                        debug[server.id]["guild_error"] = str(e)
+                        debug[server.id]["found_guild"] = False
                         continue
                     else:
-                        if guildUser:
+                        debug[server.id]["found_guild"] = True
+                        if server_member:
                             try:
-                                guild_user = await guild.fetch_or_create_member(guildUser)
+                                guild_user = await guild.fetch_or_create_member(server_member)
                             except Exception as e:
                                 print("{}: {}".format(type(e).__name__, e))
+                                debug[server.id]["member_error"] = str(e)
                             else:
+                                debug[server.id]["user_permissions"] = str(guild_user.perms)
                                 if guild_user.can_access_dash:
                                     try:
                                         servers.append({
@@ -345,10 +358,11 @@ class Auth(commands.Cog):
                                             "isPremium": guild.is_premium,
                                         })
                                     except Exception as e:
+                                        debug[server.id]["server_append_error"] = str(e)
                                         print("{}: {}".format(type(e).__name__, e))
                 try:
                     is_dev = await user_is_developer(self.bot, userId)
-                    return jsonify({
+                    data = {
                         "status": "ok",
                         "user": {
                             "id": userId,
@@ -358,7 +372,10 @@ class Auth(commands.Cog):
                             "isDeveloper": is_dev,
                         },
                         "servers": servers,
-                    })
+                    }
+                    if is_dev:
+                        data["debug"] = debug
+                    return jsonify(data)
                 except Exception as e:
                     print("{}: {}".format(type(e).__name__, e))
                     return jsonify({"status": "error", "message": "Could not retrieve user"}), 500

@@ -11,4 +11,4 @@ DEFINE FIELD roles ON guild_user TYPE array<number> DEFAULT [];
 
 DEFINE FIELD join_date ON guild_user TYPE datetime DEFAULT time::now();
 
-DEFINE INDEX guildUserIndex ON guild_user COLUMNS guild_id, id UNIQUE;
+DEFINE INDEX guildUserIndex ON guild_user COLUMNS guild_id, user_id UNIQUE;

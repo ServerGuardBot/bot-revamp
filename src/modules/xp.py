@@ -103,7 +103,7 @@ class XP(commands.Cog):
     
     @listener("xp")
     @commands.Cog.listener()
-    async def on_bulk_member_xp_add(self, event: guilded.BulkMemberXpAddEvent):
+    async def on_bulk_member_roles_update(self, event: guilded.BulkMemberRolesUpdateEvent):
         try:
             guild = await db.servers.fetch_or_create_server(event.server)
         except Exception as e:
@@ -123,20 +123,28 @@ class XP(commands.Cog):
                         "level": r["level"],
                         "id": r["teamRoleId"],
                     } for r in level_roles_req]
-                    self.level_role_cache[message.server.id] = [datetime.now() + timedelta(minutes=10), cached]
-                for member in event.members:
+                    self.level_role_cache[event.server.id] = [datetime.now() + timedelta(minutes=10), cached]
+                for member in event.after:
                     lower_roles, highest_role = [], {'level': 0, 'id': -3429785678456}
-                    for role in level_roles:
-                        role: dict
-                        if role['id'] in member._role_ids:
-                            if role['level'] >= highest_role['level']:
-                                if role['level'] != highest_role['level'] and highest_role['level'] > 0:
-                                    # Only add the highest role to lower_roles if the level is actually lower than this role
-                                    lower_roles.append(highest_role['id'])
-                                highest_role = role
-                    if len(lower_roles) > 0:
-                        for role in lower_roles:
-                            await member.remove_role(Object(role))
+                    if len(cached) > 0:
+                        role_ids = member._role_ids
+                        if len(role_ids) == 0:
+                            try:
+                                role_ids = await member.fetch_role_ids()
+                                member._role_ids = role_ids
+                            except:
+                                continue
+                        for role in cached:
+                            role: dict
+                            if role['id'] in role_ids:
+                                if role['level'] >= highest_role['level']:
+                                    if role['level'] != highest_role['level'] and highest_role['level'] > 0:
+                                        # Only add the highest role to lower_roles if the level is actually lower than this role
+                                        lower_roles.append(highest_role['id'])
+                                    highest_role = role
+                        if len(lower_roles) > 0:
+                            for role in lower_roles:
+                                await member.remove_role(Object(role))
     
     @listener("xp")
     @commands.Cog.listener()

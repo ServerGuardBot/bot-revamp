@@ -1,7 +1,6 @@
 from prometheus_client import Counter, Histogram
 from quart import Quart, jsonify, request
 from guilded.ext import commands, tasks
-from quart_cors import route_cors
 from functools import wraps
 
 import database as db
@@ -70,7 +69,6 @@ class Metrics(commands.Cog):
     
     def register_routes(self, app: Quart):
         @app.route("/uptime", methods=["GET"])
-        @route_cors(allow_methods=["GET"], allow_origin=["*"], allow_credentials=False)
         async def Uptime():
             bot_latency = self.bot.latency * 1000
 
@@ -86,7 +84,7 @@ class Metrics(commands.Cog):
         
         @app.after_request
         async def after_request(response):
-            if request.remote_addr == "127.0.0.1":
+            if request.remote_addr == "127.0.0.1" or getattr(response, "start_time", None) == None:
                 return response
 
             request_latency = time.time() - request.start_time

@@ -1,4 +1,4 @@
-from database import DBConnection, loadQuery, resultExists, valkey, encoder, decoder
+from database import DBConnection, loadQuery, resultExists, allOk, valkey, encoder, decoder
 from database.exceptions import DatabaseError, NotFound
 from core.images import IMAGE_DEFAULT_AVATAR
 from surrealdb.ws import SurrealException
@@ -13,7 +13,11 @@ async def fetch_or_create_user(user: Union[guilded.User, guilded.Member]) -> Use
     try:
         user = await fetch_user(user.id)
     except NotFound:
-        user = await create_user(user.id, user.name, user.display_avatar.url)
+        user = await create_user(
+            user.id,
+            user.name,
+            user.display_avatar.url
+        )
     return user
 
 async def fetch_user(id: str) -> User:
@@ -101,9 +105,10 @@ async def find_matching_identifiers(
         except SurrealException as e:
             raise DatabaseError(str(e))
         else:
-            for item in raw:
-                valkey.set(f"db:identifier:{item['id']}", encoder.encode(item), 86400)
-            return [Identifier(raw) for raw in response[0]["result"]]
+            if allOk(response):
+                for item in response[0]["result"]:
+                    valkey.set(f"db:identifier:{item['id']}", encoder.encode(item), 86400)
+                return [Identifier(raw) for raw in response[0]["result"]]
 
 async def count_users() -> int:
     async with DBConnection() as db:

@@ -1,10 +1,10 @@
 class DatabaseModel:
     def __init__(self, data: dict):
-        self.__raw = data
+        self.raw = data
     
     @property
     def id(self):
-        raw = self.__raw["id"]
+        raw = self.raw["id"]
         
         if len(raw.split(":")) > 1:
             return raw.split(":")[1]

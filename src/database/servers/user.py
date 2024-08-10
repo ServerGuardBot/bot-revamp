@@ -77,46 +77,46 @@ class ServerUser(DatabaseModel):
             try:
                 await db.query(loadQuery("updateGuildUserRoles"), {
                     "guild": self.server_id,
-                    "user_id": self.user_id,
+                    "id": self.user_id,
                     "roles": roles
                 })
             except SurrealException as e:
                 raise DatabaseError(str(e))
             else:
                 self.roles = roles
-                self.__raw["roles"] = roles
-                valkey.set(f"db:server_user:{self.server_id}:{self.user_id}", encoder.encode(self.__raw), 86400)
+                self.raw["roles"] = roles
+                valkey.set(f"db:server_user:{self.server_id}:{self.user_id}", encoder.encode(self.raw), 86400)
     
     async def set_perms(self, perms: UserPermissions):
         async with DBConnection() as db:
             try:
                 await db.query(loadQuery("updateGuildUserPerms"), {
                     "guild": self.server_id,
-                    "user_id": self.user_id,
+                    "id": self.user_id,
                     "perms": str(perms),
-                    "acces": perms.can_access_dash
+                    "access": perms.can_access_dash
                 })
             except SurrealException as e:
                 raise DatabaseError(str(e))
             else:
                 self.perms = perms
-                self.__raw["perms"] = str(perms)
-                valkey.set(f"db:server_user:{self.server_id}:{self.user_id}", encoder.encode(self.__raw), 86400)
+                self.raw["perms"] = str(perms)
+                valkey.set(f"db:server_user:{self.server_id}:{self.user_id}", encoder.encode(self.raw), 86400)
     
     async def set_banned(self, banned: bool):
         async with DBConnection() as db:
             try:
                 await db.query(loadQuery("updateGuildUserBanned"), {
                     "guild": self.server_id,
-                    "user_id": self.user_id,
+                    "id": self.user_id,
                     "banned": banned
                 })
             except SurrealException as e:
                 raise DatabaseError(str(e))
             else:
                 self.is_banned = banned
-                self.__raw["is_banned"] = banned
-                valkey.set(f"db:server_user:{self.server_id}:{self.user_id}", encoder.encode(self.__raw), 86400)
+                self.raw["is_banned"] = banned
+                valkey.set(f"db:server_user:{self.server_id}:{self.user_id}", encoder.encode(self.raw), 86400)
     
     async def set_note(self, note: str):
         async with DBConnection() as db:
@@ -130,8 +130,8 @@ class ServerUser(DatabaseModel):
                 raise DatabaseError(str(e))
             else:
                 self.note = note
-                self.__raw["note"] = note
-                valkey.set(f"db:server_user:{self.server_id}:{self.user_id}", encoder.encode(self.__raw), 86400)
+                self.raw["note"] = note
+                valkey.set(f"db:server_user:{self.server_id}:{self.user_id}", encoder.encode(self.raw), 86400)
     
     async def set_xp(self, xp: int):
         async with DBConnection() as db:
@@ -145,15 +145,15 @@ class ServerUser(DatabaseModel):
                 raise DatabaseError(str(e))
             else:
                 self.xp = xp
-                self.__raw["xp"] = xp
-                valkey.set(f"db:server_user:{self.server_id}:{self.user_id}", encoder.encode(self.__raw), 86400)
+                self.raw["xp"] = xp
+                valkey.set(f"db:server_user:{self.server_id}:{self.user_id}", encoder.encode(self.raw), 86400)
     
     async def delete(self):
         async with DBConnection() as db:
             try:
                 await db.query(loadQuery("deleteGuildUser"), {
                     "guild": self.server_id,
-                    "user_id": self.user_id
+                    "id": self.user_id
                 })
             except SurrealException as e:
                 raise DatabaseError(str(e))
